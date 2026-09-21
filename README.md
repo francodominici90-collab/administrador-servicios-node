@@ -21,12 +21,6 @@ git clone https://github.com/francodominici90-collab/administrador-servicios-nod
 cd administrador-servicios-node
 ```
 
-Ingresar en la carpeta del proyecto:
-
-```bash
-cd CODIGO_CLASE_1
-```
-
 Instalar las dependencias:
 
 ```bash
