@@ -1,27 +1,20 @@
-# Administrador de servicios
+# Administrador de servicios — API REST
 
-Proyecto desarrollado con Node.js para administrar los servicios de un sistema de turnos y reservas.
+Proyecto desarrollado con Node.js y Express para administrar los servicios de un sistema de turnos y reservas.
 
-La clase `ServiceManager` permite consultar, agregar, actualizar y eliminar servicios almacenados en un archivo JSON.
+Esta segunda entrega incorpora endpoints REST que utilizan la clase `ServiceManager` de la primera entrega. Los datos continúan almacenándose en `src/data/services.json`.
 
-## Tecnologías utilizadas
+## Tecnologías
 
 - Node.js
-- JavaScript
-- ECMAScript Modules (ESM)
+- JavaScript con ECMAScript Modules (ESM)
+- Express
 - dotenv
-- Persistencia mediante JSON
+- Persistencia en archivos JSON
 
 ## Instalación
 
-Clonar el repositorio:
-
-```bash
-git clone https://github.com/francodominici90-collab/administrador-servicios-node.git
-cd administrador-servicios-node
-```
-
-Instalar las dependencias:
+Desde la carpeta raíz del proyecto, donde se encuentra `package.json`, instalar las dependencias:
 
 ```bash
 npm install
@@ -29,177 +22,310 @@ npm install
 
 ## Variables de entorno
 
-Crear un archivo `.env` en la raíz del proyecto con las siguientes variables:
+Crear un archivo `.env` en la raíz del proyecto:
 
 ```env
 PORT=8080
 NODE_ENV=development
 ```
 
-También se incluye el archivo `.env.example` como referencia:
+Las dos variables son obligatorias. Si falta alguna o está vacía, la aplicación falla al iniciar con un mensaje descriptivo.
+
+El archivo `.env.example` contiene los nombres de las variables sin valores:
 
 ```env
 PORT=
 NODE_ENV=
 ```
 
-El archivo `.env` no se incluye en el repositorio porque se encuentra declarado en `.gitignore`.
+Los archivos `.env` y la carpeta `node_modules` están excluidos mediante `.gitignore`.
 
 ## Ejecución
 
-Para iniciar normalmente la aplicación:
+Iniciar el servidor:
 
 ```bash
 npm start
 ```
 
-Para iniciar en modo desarrollo con reinicio automático:
+Iniciar en modo desarrollo con reinicio automático:
 
 ```bash
 npm run dev
 ```
 
-## Recurso `services`
+Con la configuración del ejemplo, la URL base del recurso es:
 
-Cada servicio contiene las siguientes propiedades:
+```text
+http://localhost:8080/api/services
+```
 
-```js
+Para detener el servidor, presionar `Ctrl + C`.
+
+## Organización del proyecto
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| `src/config/env.config.js` | Carga y valida las variables de entorno |
+| `src/managers/ServiceManager.js` | Gestiona y valida los servicios, y lee y escribe el archivo JSON |
+| `src/data/services.json` | Almacena los servicios |
+| `src/routes/services.router.js` | Define los endpoints y sus respuestas HTTP |
+| `src/app.js` | Configura Express, interpreta JSON y monta el router |
+| `src/server.js` | Inicia el servidor en el puerto configurado |
+| `package.json` | Define las dependencias y los scripts |
+| `.env.example` | Documenta las variables necesarias |
+| `.gitignore` | Excluye archivos que no deben versionarse |
+
+## Recurso services
+
+Cada servicio tiene la siguiente estructura:
+
+```json
 {
-  id: 1,
-  name: "Consulta general",
-  description: "Consulta inicial para evaluar al cliente",
-  duration: 30,
-  price: 15000,
-  category: "Consultas",
-  available: true
+  "id": 1,
+  "name": "Consulta general",
+  "description": "Consulta inicial para evaluar al cliente",
+  "duration": 30,
+  "price": 15000,
+  "category": "Consultas",
+  "available": true
 }
 ```
 
-- `id`: identificador generado automáticamente.
+- `id`: identificador numérico generado internamente.
 - `name`: nombre del servicio.
 - `description`: descripción del servicio.
-- `duration`: duración del servicio en minutos.
-- `price`: precio del servicio.
-- `category`: categoría a la que pertenece.
-- `available`: indica si el servicio se encuentra disponible.
+- `duration`: duración en minutos, mayor que cero.
+- `price`: precio, mayor o igual que cero.
+- `category`: categoría del servicio.
+- `available`: disponibilidad, expresada como booleano.
 
-Los servicios se almacenan en:
+Los campos `name`, `description`, `duration`, `price`, `category` y `available` son obligatorios al crear un servicio.
+
+El valor `false` es válido para `available` y el valor `0` es válido para `price`.
+
+## Endpoints
+
+| Método | Ruta | Comportamiento | Estados principales |
+| --- | --- | --- | --- |
+| GET | `/api/services` | Lista los servicios y permite filtrarlos | 200, 400 |
+| GET | `/api/services/:sid` | Busca un servicio por ID | 200, 404 |
+| POST | `/api/services` | Crea un servicio | 201, 400 |
+| PUT | `/api/services/:sid` | Actualiza un servicio | 200, 400, 404 |
+| DELETE | `/api/services/:sid` | Elimina un servicio | 200, 404 |
+
+### GET /api/services
+
+Devuelve un array con todos los servicios.
+
+Acepta los siguientes filtros opcionales:
+
+- `category`: filtra por categoría, sin distinguir mayúsculas y minúsculas.
+- `available`: filtra por disponibilidad usando `true` o `false`.
+
+Los filtros pueden combinarse:
 
 ```text
-src/data/services.json
+GET /api/services?category=Consultas&available=true
 ```
 
-## Uso de ServiceManager
+Si ningún servicio coincide, responde con estado `200` y un array vacío:
 
-Primero se importa y se crea una instancia:
+```json
+[]
+```
+
+Si `available` tiene un valor inválido, responde con estado `400`.
+
+### GET /api/services/:sid
+
+Busca el servicio cuyo ID corresponde al parámetro `sid`.
+
+```text
+GET /api/services/1
+```
+
+Responde con estado `200` y el servicio encontrado.
+
+Si no existe, responde con estado `404`:
+
+```json
+{
+  "error": "Servicio no encontrado"
+}
+```
+
+### POST /api/services
+
+Crea un servicio usando los datos del body.
+
+Enviar el encabezado:
+
+```text
+Content-Type: application/json
+```
+
+Ejemplo de body:
+
+```json
+{
+  "name": "Masaje relajante",
+  "description": "Masaje de una hora",
+  "duration": 60,
+  "price": 20000,
+  "category": "Salud",
+  "available": true
+}
+```
+
+No se debe enviar el `id`: lo genera internamente `ServiceManager`.
+
+Si la creación es exitosa, responde con estado `201` y el servicio creado, incluyendo su ID.
+
+Si faltan campos o los valores no son válidos, responde con estado `400` y un mensaje descriptivo.
+
+### PUT /api/services/:sid
+
+Actualiza los campos enviados en el body y conserva los restantes.
+
+```text
+PUT /api/services/2
+```
+
+Ejemplo de body:
+
+```json
+{
+  "price": 23000,
+  "available": false
+}
+```
+
+Responde con estado `200` y el servicio actualizado.
+
+El ID original no puede modificarse. Si se incluye un `id` en el body, se ignora.
+
+Si el servicio no existe, responde con estado `404`. Si los datos de actualización son inválidos, responde con estado `400`.
+
+### DELETE /api/services/:sid
+
+Elimina el servicio indicado:
+
+```text
+DELETE /api/services/2
+```
+
+Responde con estado `200` y el servicio eliminado.
+
+Si no existe, responde con estado `404`.
+
+## Recepción de datos HTTP
+
+El router utiliza:
+
+- `req.params.sid` para obtener el ID de la ruta.
+- `req.query` para obtener los filtros.
+- `req.body` para obtener los datos de creación y actualización.
+
+`express.json()` se configura en `app.js` antes de montar el router, para interpretar los cuerpos JSON.
+
+## Métodos de ServiceManager
+
+La lógica de los servicios permanece separada de Express.
+
+| Método | Descripción |
+| --- | --- |
+| `getServices()` | Obtiene todos los servicios |
+| `getServiceById(id)` | Obtiene un servicio o devuelve `null` |
+| `addService(serviceData)` | Valida, genera el ID y guarda un nuevo servicio |
+| `updateService(id, updatedData)` | Actualiza un servicio sin cambiar su ID |
+| `deleteService(id)` | Elimina un servicio |
+
+Los métodos son asíncronos y se utilizan con `await`.
+
+Ejemplo desde un archivo JavaScript ubicado en la raíz del proyecto:
 
 ```js
 import ServiceManager from "./src/managers/ServiceManager.js";
 
-const serviceManager = new ServiceManager();
-```
+const manager = new ServiceManager();
 
-### Obtener todos los servicios
-
-```js
-const services = await serviceManager.getServices();
-
+const services = await manager.getServices();
 console.log(services);
+
+const service = await manager.getServiceById(1);
+console.log(service);
 ```
 
-### Buscar un servicio por ID
+## Pruebas manuales
 
-```js
-const service = await serviceManager.getServiceById(1);
+Con el servidor en ejecución, abrir otra terminal de PowerShell.
 
-if (service === null) {
-  console.log("Servicio no encontrado");
-} else {
-  console.log(service);
-}
+### Consultar servicios
+
+```powershell
+curl.exe -i http://localhost:8080/api/services
 ```
 
-### Agregar un servicio
+La opción `-i` permite visualizar los encabezados y el estado HTTP.
 
-El ID no se envía porque es generado automáticamente por `ServiceManager`.
+### Crear un servicio
 
-```js
-const newService = await serviceManager.addService({
-  name: "Consulta general",
-  description: "Consulta inicial para evaluar al cliente",
-  duration: 30,
-  price: 15000,
-  category: "Consultas",
-  available: true
-});
+```powershell
+$serviceBody = @{
+  name = "Masaje relajante"
+  description = "Masaje de una hora"
+  duration = 60
+  price = 20000
+  category = "Salud"
+  available = $true
+} | ConvertTo-Json
 
-console.log(newService);
+$createdService = Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/services" `
+  -Method POST `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $serviceBody
+
+$createdService
 ```
 
-### Actualizar un servicio
+### Actualizar el servicio creado
 
-Se envía el ID del servicio y los campos que se desean modificar.
+Se utiliza el ID devuelto por el POST:
 
-```js
-const updatedService = await serviceManager.updateService(1, {
-  price: 18000,
-  available: false
-});
+```powershell
+$serviceId = $createdService.id
 
-if (updatedService === null) {
-  console.log("Servicio no encontrado");
-} else {
-  console.log(updatedService);
-}
+$updateBody = @{
+  price = 23000
+  available = $false
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/services/$serviceId" `
+  -Method PUT `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $updateBody
 ```
 
-El método no permite modificar el ID original del servicio.
+### Eliminar el servicio de prueba
 
-### Eliminar un servicio
+Este comando elimina únicamente el servicio creado en el ejemplo anterior:
 
-```js
-const deletedService = await serviceManager.deleteService(1);
-
-if (deletedService === null) {
-  console.log("Servicio no encontrado");
-} else {
-  console.log(deletedService);
-}
+```powershell
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/services/$serviceId" `
+  -Method DELETE
 ```
 
-## Validaciones
+Comprobar que ya no existe:
 
-Para agregar un servicio son obligatorios los siguientes campos:
-
-- `name`
-- `description`
-- `duration`
-- `price`
-- `category`
-- `available`
-
-Si falta alguno de estos campos, `ServiceManager` produce un error descriptivo.
-
-Los métodos `getServiceById()`, `updateService()` y `deleteService()` devuelven `null` cuando el servicio indicado no existe.
-
-## Estructura principal
-
-```text
-CODIGO_CLASE_1/
-├── src/
-│   ├── config/
-│   │   └── env.config.js
-│   ├── data/
-│   │   └── services.json
-│   ├── managers/
-│   │   └── ServiceManager.js
-│   └── app.js
-├── .env.example
-├── .gitignore
-├── package-lock.json
-├── package.json
-└── README.md
+```powershell
+curl.exe -i "http://localhost:8080/api/services/$serviceId"
 ```
+
+El resultado esperado es `404 Not Found`.
 
 ## Autor
 
