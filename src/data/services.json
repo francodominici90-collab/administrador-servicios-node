@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "name": "Consulta general",
+    "description": "Consulta inicial para evaluar al cliente",
+    "duration": 30,
+    "price": 15000,
+    "category": "Consultas",
+    "available": true
+  }
+]
