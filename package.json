@@ -2,17 +2,18 @@
   "name": "codigo_clase_1",
   "version": "1.0.0",
   "description": "Administrador de servicios para un sistema de turnos y reservas",
-  "main": "src/app.js",
+  "main": "src/server.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node src/app.js",
-    "dev": "node --watch src/app.js"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "dotenv": "^18.0.1"
+    "dotenv": "^18.0.1",
+    "express": "^5.2.1"
   }
 }
