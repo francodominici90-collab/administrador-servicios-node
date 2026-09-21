@@ -17,7 +17,8 @@ La clase `ServiceManager` permite consultar, agregar, actualizar y eliminar serv
 Clonar el repositorio:
 
 ```bash
-git clone URL_DEL_REPOSITORIO
+git clone https://github.com/francodominici90-collab/administrador-servicios-node.git
+cd administrador-servicios-node
 ```
 
 Ingresar en la carpeta del proyecto:
