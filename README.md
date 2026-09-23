@@ -1,8 +1,8 @@
-# Administrador de servicios — API REST
+# Administrador de servicios y reservas — API REST
 
-Proyecto desarrollado con Node.js y Express para administrar los servicios de un sistema de turnos y reservas.
+Proyecto desarrollado con Node.js, Express y FileSystem para gestionar servicios y reservas de un sistema de turnos.
 
-Esta segunda entrega incorpora endpoints REST que utilizan la clase `ServiceManager` de la primera entrega. Los datos se almacenan en `src/data/services.json` y se conservan al reiniciar el servidor.
+Esta tercera entrega incorpora el recurso `bookings`. Los servicios se almacenan en `src/data/services.json` y las reservas en `src/data/bookings.json`. Los datos se conservan al reiniciar el servidor.
 
 ## Tecnologías
 
@@ -10,7 +10,8 @@ Esta segunda entrega incorpora endpoints REST que utilizan la clase `ServiceMana
 - JavaScript con ECMAScript Modules (ESM)
 - Express
 - dotenv
-- Persistencia mediante FileSystem y archivos JSON
+- FileSystem mediante `node:fs/promises`
+- Persistencia en archivos JSON
 
 ## Instalación
 
@@ -40,7 +41,7 @@ Las dos variables son obligatorias. Si falta alguna o está vacía, la aplicaci�
 
 Además, `PORT` debe ser un número entero positivo.
 
-El archivo `.env.example` contiene los nombres de las variables sin valores:
+El archivo `.env.example` contiene las variables sin valores:
 
 ```env
 PORT=
@@ -63,10 +64,11 @@ Iniciar en modo desarrollo con reinicio automático:
 npm run dev
 ```
 
-Con la configuración del ejemplo, la URL base del recurso es:
+Con la configuración del ejemplo, las URLs base son:
 
 ```text
 http://localhost:8080/api/services
+http://localhost:8080/api/bookings
 ```
 
 Para detener el servidor, presionar `Ctrl + C`.
@@ -76,16 +78,23 @@ Para detener el servidor, presionar `Ctrl + C`.
 | Archivo | Responsabilidad |
 | --- | --- |
 | `src/config/env.config.js` | Carga y valida las variables de entorno |
-| `src/managers/ServiceManager.js` | Gestiona y valida los servicios, y lee y escribe el archivo JSON |
+| `src/managers/ServiceManager.js` | Gestiona servicios y su persistencia |
+| `src/managers/BookingManager.js` | Gestiona reservas y su persistencia |
+| `src/routes/services.router.js` | Define los endpoints de servicios |
+| `src/routes/bookings.router.js` | Define los endpoints de reservas |
 | `src/data/services.json` | Almacena los servicios |
-| `src/routes/services.router.js` | Define los endpoints y sus respuestas HTTP |
-| `src/app.js` | Configura Express, interpreta JSON y monta el router |
+| `src/data/bookings.json` | Almacena las reservas |
+| `src/app.js` | Configura Express, interpreta JSON y monta los routers |
 | `src/server.js` | Inicia el servidor en el puerto configurado |
 | `package.json` | Define las dependencias y los scripts |
 | `package-lock.json` | Registra las versiones de las dependencias |
 | `.env.example` | Documenta las variables necesarias |
 | `.gitignore` | Excluye archivos que no deben versionarse |
 | `README.md` | Documenta la instalación y el uso del proyecto |
+
+Los routers reciben las peticiones HTTP y delegan las operaciones en los managers.
+
+Los managers contienen la lógica de validación y persistencia. Las operaciones de lectura y escritura utilizan `node:fs/promises`.
 
 ## Recurso services
 
@@ -111,11 +120,11 @@ Cada servicio tiene la siguiente estructura:
 - `category`: categoría del servicio.
 - `available`: disponibilidad, expresada como booleano.
 
-Los campos `name`, `description`, `duration`, `price`, `category` y `available` son obligatorios al crear un servicio.
+Todos los campos, excepto `id`, son obligatorios al crear un servicio.
 
 Los campos de texto no pueden estar vacíos. El valor `false` es válido para `available` y el valor `0` es válido para `price`.
 
-## Endpoints
+## Endpoints de servicios
 
 | Método | Ruta | Comportamiento | Estados principales |
 | --- | --- | --- | --- |
@@ -132,7 +141,7 @@ Devuelve un array con todos los servicios.
 Acepta los siguientes filtros opcionales:
 
 - `category`: filtra por categoría, sin distinguir mayúsculas y minúsculas.
-- `available`: filtra por disponibilidad usando `true` o `false`.
+- `available`: filtra por disponibilidad utilizando `true` o `false`.
 
 Los filtros pueden combinarse:
 
@@ -150,7 +159,7 @@ Si `available` tiene un valor inválido, responde con estado `400`.
 
 ### GET /api/services/:sid
 
-Busca el servicio cuyo ID corresponde al parámetro `sid`.
+Ejemplo:
 
 ```text
 GET /api/services/1
@@ -168,7 +177,7 @@ Si no existe, responde con estado `404`:
 
 ### POST /api/services
 
-Crea un servicio usando los datos del body.
+Crea un servicio con los datos del body.
 
 Enviar el encabezado:
 
@@ -191,9 +200,9 @@ Ejemplo de body:
 
 No se debe enviar el `id`: lo genera internamente `ServiceManager`.
 
-Si la creación es exitosa, responde con estado `201` y el servicio creado, incluyendo su ID.
+Responde con estado `201` y el servicio creado.
 
-Si faltan campos o los valores no son válidos, responde con estado `400` y un mensaje descriptivo.
+Si faltan campos o los valores son inválidos, responde con estado `400`.
 
 ### PUT /api/services/:sid
 
@@ -220,7 +229,7 @@ Si el servicio no existe, responde con estado `404`. Si los datos de actualizaci
 
 ### DELETE /api/services/:sid
 
-Elimina el servicio indicado:
+Ejemplo:
 
 ```text
 DELETE /api/services/2
@@ -230,97 +239,159 @@ Responde con estado `200` y el servicio eliminado.
 
 Si no existe, responde con estado `404`.
 
-## Recepción de datos HTTP
+## Recurso bookings
 
-El router utiliza:
+Cada reserva tiene la siguiente estructura:
 
-- `req.params.sid` para obtener el ID de la ruta.
-- `req.query` para obtener los filtros.
-- `req.body` para obtener los datos de creación y actualización.
+```json
+{
+  "id": 1,
+  "clientName": "Cliente de prueba",
+  "clientEmail": "cliente@example.com",
+  "date": "2026-10-05",
+  "time": "15:30",
+  "status": "pending",
+  "services": [
+    {
+      "service": 1,
+      "quantity": 2
+    }
+  ]
+}
+```
 
-`express.json()` se configura en `app.js` antes de montar el router, para interpretar los cuerpos JSON.
+- `id`: identificador numérico generado internamente.
+- `clientName`: nombre del cliente.
+- `clientEmail`: correo electrónico del cliente.
+- `date`: fecha válida con formato `YYYY-MM-DD`.
+- `time`: hora con formato `HH:mm`, entre `00:00` y `23:59`.
+- `status`: estado de la reserva; por defecto, `pending`.
+- `services`: array con referencias a servicios y sus cantidades.
 
-La lógica de persistencia y validación de los servicios permanece en `ServiceManager`.
+Cada elemento de `services` almacena el ID del servicio en `service` y su cantidad en `quantity`.
 
-## Métodos de ServiceManager
+Si se agrega nuevamente el mismo servicio, aumenta su cantidad sin duplicar el elemento.
+
+## Endpoints de reservas
+
+| Método | Ruta | Comportamiento | Estados principales |
+| --- | --- | --- | --- |
+| POST | `/api/bookings` | Crea una reserva | 201, 400 |
+| GET | `/api/bookings/:bid` | Busca una reserva por ID | 200, 404 |
+| POST | `/api/bookings/:bid/services/:sid` | Agrega un servicio a una reserva | 200, 404 |
+
+Los errores internos de lectura o escritura en estas rutas responden con estado `500`.
+
+### POST /api/bookings
+
+Enviar un body JSON con los datos del cliente y del turno:
+
+```json
+{
+  "clientName": "Cliente de prueba",
+  "clientEmail": "cliente@example.com",
+  "date": "2026-10-05",
+  "time": "15:30",
+  "status": "pending",
+  "services": []
+}
+```
+
+Los campos `clientName`, `clientEmail`, `date` y `time` son obligatorios.
+
+Si se omite `status`, se utiliza `pending`. Si se proporciona, debe ser un texto no vacío.
+
+En esta implementación las reservas se crean sin servicios. El campo `services` puede omitirse o enviarse como un array vacío. Los servicios se agregan mediante el endpoint específico.
+
+El ID se genera internamente y no debe enviarse en el body.
+
+La respuesta exitosa tiene estado `201` y contiene la reserva creada. Los datos inválidos producen una respuesta `400`.
+
+### GET /api/bookings/:bid
+
+Ejemplo:
+
+```text
+GET /api/bookings/1
+```
+
+Responde con estado `200` y la reserva encontrada.
+
+Si no existe, responde con estado `404`:
+
+```json
+{
+  "error": "Reserva no encontrada"
+}
+```
+
+### POST /api/bookings/:bid/services/:sid
+
+Ejemplo:
+
+```text
+POST /api/bookings/1/services/1
+```
+
+Agrega el servicio con ID `1` a la reserva con ID `1`. Esta petición no necesita body.
+
+Antes de guardar, se comprueba que ambos recursos existan.
+
+- Si el servicio todavía no está en la reserva, se agrega con `quantity: 1`.
+- Si ya está, se incrementa `quantity` en una unidad.
+- Si no existe la reserva o el servicio, se responde con estado `404` sin modificar el archivo.
+
+La respuesta exitosa tiene estado `200` y contiene la reserva actualizada.
+
+## Managers
+
+### ServiceManager
 
 | Método | Descripción |
 | --- | --- |
 | `getServices()` | Obtiene todos los servicios |
-| `getServiceById(id)` | Obtiene un servicio o devuelve `null` |
-| `addService(serviceData)` | Valida, genera el ID y guarda un nuevo servicio |
+| `getServiceById(id)` | Devuelve un servicio o `null` |
+| `addService(serviceData)` | Valida, genera el ID y guarda un servicio |
 | `updateService(id, updatedData)` | Actualiza un servicio sin cambiar su ID; devuelve `null` si no existe |
 | `deleteService(id)` | Elimina un servicio; devuelve `null` si no existe |
 
-Los métodos son asíncronos y se utilizan con `await`.
+### BookingManager
 
-Ejemplo desde un archivo JavaScript ubicado en la raíz del proyecto:
+| Método | Descripción |
+| --- | --- |
+| `createBooking(bookingData)` | Valida los datos, genera el ID y guarda una reserva |
+| `getBookingById(id)` | Devuelve una reserva o `null` |
+| `addServiceToBooking(bookingId, serviceId)` | Valida ambos recursos y agrega el servicio o incrementa su cantidad |
 
-```js
-import ServiceManager from "./src/managers/ServiceManager.js";
+Todos estos métodos son asíncronos y se utilizan con `await`.
 
-const manager = new ServiceManager();
+## Recepción de datos HTTP
 
-/* Consultar todos los servicios */
-console.log(await manager.getServices());
+Los routers utilizan:
 
-/* Crear un servicio de prueba */
-const createdService = await manager.addService({
-  name: "Servicio de prueba",
-  description: "Servicio para comprobar los metodos",
-  duration: 30,
-  price: 10000,
-  category: "Pruebas",
-  available: true
-});
+- `req.params` para obtener `sid` y `bid`.
+- `req.query` para obtener los filtros de servicios.
+- `req.body` para obtener los datos de creación y actualización.
 
-/* Consultar el servicio creado */
-console.log(
-  await manager.getServiceById(createdService.id)
-);
+`express.json()` se configura en `app.js` antes de montar los routers para interpretar los cuerpos JSON.
 
-/* Actualizar conservando el ID original */
-console.log(
-  await manager.updateService(createdService.id, {
-    price: 12000,
-    available: false
-  })
-);
+## Pruebas manuales
 
-/* Eliminar solamente el servicio de prueba */
-console.log(
-  await manager.deleteService(createdService.id)
-);
+Iniciar el servidor y abrir otra terminal de PowerShell.
 
-/* Comprobar que ya no existe: devuelve null */
-console.log(
-  await manager.getServiceById(createdService.id)
-);
-```
+Ejecutar los siguientes ejemplos en orden y en la misma terminal para conservar las variables.
 
-## Pruebas manuales de la API
+Las pruebas modifican los archivos JSON. Utilizar datos ficticios.
 
-Con el servidor en ejecución, abrir otra terminal de PowerShell.
-
-Los siguientes pasos se ejecutan en orden y en la misma terminal para conservar las variables.
-
-### Consultar servicios
-
-```powershell
-curl.exe -i http://localhost:8080/api/services
-```
-
-La opción `-i` permite visualizar los encabezados y el estado HTTP.
-
-### Crear un servicio
+### Crear un servicio de prueba
 
 ```powershell
 $serviceBody = @{
-  name = "Masaje relajante"
-  description = "Masaje de una hora"
-  duration = 60
-  price = 20000
-  category = "Salud"
+  name = "Servicio de prueba"
+  description = "Servicio para comprobar la API"
+  duration = 30
+  price = 10000
+  category = "Pruebas"
   available = $true
 } | ConvertTo-Json
 
@@ -330,20 +401,19 @@ $createdService = Invoke-RestMethod `
   -ContentType "application/json; charset=utf-8" `
   -Body $serviceBody
 
+$serviceId = $createdService.id
 $createdService
 ```
 
-### Consultar el servicio creado
-
-Se utiliza el ID devuelto por el POST:
+### Consultar servicios
 
 ```powershell
-$serviceId = $createdService.id
+curl.exe -i http://localhost:8080/api/services
 
 curl.exe -i "http://localhost:8080/api/services/$serviceId"
 ```
 
-El resultado esperado es `200 OK` y los datos del servicio.
+La opción `-i` permite visualizar los encabezados y el estado HTTP.
 
 ### Actualizar y comprobar la protección del ID
 
@@ -352,7 +422,7 @@ El campo `id` se incluye intencionalmente para comprobar que no pueda modificars
 ```powershell
 $updateBody = @{
   id = 999999
-  price = 23000
+  price = 12000
   available = $false
 } | ConvertTo-Json
 
@@ -363,15 +433,15 @@ Invoke-RestMethod `
   -Body $updateBody
 ```
 
-El precio y la disponibilidad deben actualizarse. El ID debe conservar su valor original.
+El precio y la disponibilidad deben actualizarse, manteniendo el ID original.
 
 ### Probar filtros
 
 ```powershell
-curl.exe -i "http://localhost:8080/api/services?category=Salud&available=false"
+curl.exe -i "http://localhost:8080/api/services?category=Pruebas&available=false"
 ```
 
-La respuesta debe incluir el servicio de prueba actualizado.
+La respuesta debe incluir el servicio de prueba.
 
 Para comprobar un filtro inválido:
 
@@ -381,40 +451,140 @@ curl.exe -i "http://localhost:8080/api/services?available=hola"
 
 El resultado esperado es `400 Bad Request`.
 
-### Rechazar un servicio incompleto
+### Eliminar el servicio de prueba
+
+Este servicio aún no está asociado a ninguna reserva:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/services/$serviceId" `
+  -Method DELETE
+
+curl.exe -i "http://localhost:8080/api/services/$serviceId"
+```
+
+La eliminación debe ser exitosa y la consulta posterior debe responder `404`.
+
+### Crear una reserva
+
+```powershell
+$bookingBody = @{
+  clientName = "Cliente de prueba"
+  clientEmail = "cliente@example.com"
+  date = "2026-10-05"
+  time = "15:30"
+  status = "pending"
+  services = @()
+} | ConvertTo-Json
+
+$bookingResponse = Invoke-WebRequest `
+  -Uri "http://localhost:8080/api/bookings" `
+  -Method POST `
+  -ContentType "application/json; charset=utf-8" `
+  -Body $bookingBody `
+  -UseBasicParsing
+
+$bookingResponse.StatusCode
+
+$createdBooking = $bookingResponse.Content | ConvertFrom-Json
+$bookingId = $createdBooking.id
+
+$createdBooking | ConvertTo-Json -Depth 5
+```
+
+El resultado esperado es `201` y una reserva con ID generado y `services: []`.
+
+### Agregar un servicio a la reserva
+
+Este ejemplo utiliza el servicio original con ID `1`. Si ya no existe, reemplazar ese ID por el de un servicio existente.
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/bookings/$bookingId/services/1" `
+  -Method POST |
+  ConvertTo-Json -Depth 5
+```
+
+La reserva debe contener:
+
+```json
+{
+  "service": 1,
+  "quantity": 1
+}
+```
+
+Repetir la petición:
+
+```powershell
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/api/bookings/$bookingId/services/1" `
+  -Method POST |
+  ConvertTo-Json -Depth 5
+```
+
+Debe conservarse un único elemento con `quantity: 2`.
+
+### Comprobar persistencia
+
+Detener el servidor con `Ctrl + C` y volver a iniciarlo:
+
+```bash
+npm start
+```
+
+En la terminal de pruebas, consultar la reserva:
+
+```powershell
+curl.exe -i "http://localhost:8080/api/bookings/$bookingId"
+```
+
+Debe responder `200` y conservar los datos, incluyendo `quantity: 2`.
+
+### Comprobar recursos inexistentes
+
+Utilizar IDs que no existan en los archivos JSON. Por ejemplo, si no existe el ID `999`:
+
+```powershell
+curl.exe -i http://localhost:8080/api/bookings/999
+
+curl.exe -i -X POST "http://localhost:8080/api/bookings/$bookingId/services/999"
+
+curl.exe -i -X POST http://localhost:8080/api/bookings/999/services/1
+```
+
+Las tres peticiones deben responder `404` sin modificar las reservas.
+
+### Rechazar una reserva incompleta
 
 ```powershell
 try {
   Invoke-RestMethod `
-    -Uri "http://localhost:8080/api/services" `
+    -Uri "http://localhost:8080/api/bookings" `
     -Method POST `
     -ContentType "application/json" `
-    -Body '{"name":"Servicio incompleto"}'
+    -Body '{"clientName":"Prueba incompleta"}'
 } catch {
   Write-Output ("Estado HTTP: " + [int]$_.Exception.Response.StatusCode)
   Write-Output $_.ErrorDetails.Message
 }
 ```
 
-El resultado esperado es un estado `400` con un mensaje sobre los campos faltantes. No debe crearse ningún servicio.
+Debe responder `400` e indicar que falta `clientEmail`. No debe agregar una reserva al archivo.
 
-### Eliminar el servicio de prueba
+## Alcance de esta entrega
 
-Este comando elimina únicamente el servicio creado en el ejemplo anterior:
+La aplicación permite administrar servicios, crear y consultar reservas, y agregar servicios a una reserva.
 
-```powershell
-Invoke-RestMethod `
-  -Uri "http://localhost:8080/api/services/$serviceId" `
-  -Method DELETE
-```
+En esta etapa:
 
-Comprobar que ya no existe:
-
-```powershell
-curl.exe -i "http://localhost:8080/api/services/$serviceId"
-```
-
-El resultado esperado es `404 Not Found`.
+- La persistencia se realiza mediante archivos JSON.
+- No se utiliza MongoDB.
+- No se incluyen vistas ni WebSockets.
+- No se comprueba la disponibilidad de horarios ni se evitan turnos superpuestos.
+- Al agregar un servicio a una reserva se valida su existencia, pero no su campo `available`.
+- No se implementan endpoints de edición o eliminación de reservas.
+- Eliminar un servicio no elimina sus referencias en reservas existentes.
 
 ## Autor
 
