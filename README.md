@@ -2,7 +2,7 @@
 
 Proyecto desarrollado con Node.js y Express para administrar los servicios de un sistema de turnos y reservas.
 
-Esta segunda entrega incorpora endpoints REST que utilizan la clase `ServiceManager` de la primera entrega. Los datos continúan almacenándose en `src/data/services.json`.
+Esta segunda entrega incorpora endpoints REST que utilizan la clase `ServiceManager` de la primera entrega. Los datos se almacenan en `src/data/services.json` y se conservan al reiniciar el servidor.
 
 ## Tecnologías
 
@@ -10,11 +10,18 @@ Esta segunda entrega incorpora endpoints REST que utilizan la clase `ServiceMana
 - JavaScript con ECMAScript Modules (ESM)
 - Express
 - dotenv
-- Persistencia en archivos JSON
+- Persistencia mediante FileSystem y archivos JSON
 
 ## Instalación
 
-Desde la carpeta raíz del proyecto, donde se encuentra `package.json`, instalar las dependencias:
+Clonar el repositorio e ingresar en la carpeta del proyecto:
+
+```bash
+git clone https://github.com/francodominici90-collab/administrador-servicios-node.git
+cd administrador-servicios-node
+```
+
+Instalar las dependencias:
 
 ```bash
 npm install
@@ -31,6 +38,8 @@ NODE_ENV=development
 
 Las dos variables son obligatorias. Si falta alguna o está vacía, la aplicación falla al iniciar con un mensaje descriptivo.
 
+Además, `PORT` debe ser un número entero positivo.
+
 El archivo `.env.example` contiene los nombres de las variables sin valores:
 
 ```env
@@ -38,7 +47,7 @@ PORT=
 NODE_ENV=
 ```
 
-Los archivos `.env` y la carpeta `node_modules` están excluidos mediante `.gitignore`.
+El archivo `.env` y la carpeta `node_modules` están excluidos mediante `.gitignore`.
 
 ## Ejecución
 
@@ -73,8 +82,10 @@ Para detener el servidor, presionar `Ctrl + C`.
 | `src/app.js` | Configura Express, interpreta JSON y monta el router |
 | `src/server.js` | Inicia el servidor en el puerto configurado |
 | `package.json` | Define las dependencias y los scripts |
+| `package-lock.json` | Registra las versiones de las dependencias |
 | `.env.example` | Documenta las variables necesarias |
 | `.gitignore` | Excluye archivos que no deben versionarse |
+| `README.md` | Documenta la instalación y el uso del proyecto |
 
 ## Recurso services
 
@@ -102,7 +113,7 @@ Cada servicio tiene la siguiente estructura:
 
 Los campos `name`, `description`, `duration`, `price`, `category` y `available` son obligatorios al crear un servicio.
 
-El valor `false` es válido para `available` y el valor `0` es válido para `price`.
+Los campos de texto no pueden estar vacíos. El valor `false` es válido para `available` y el valor `0` es válido para `price`.
 
 ## Endpoints
 
@@ -229,17 +240,17 @@ El router utiliza:
 
 `express.json()` se configura en `app.js` antes de montar el router, para interpretar los cuerpos JSON.
 
-## Métodos de ServiceManager
+La lógica de persistencia y validación de los servicios permanece en `ServiceManager`.
 
-La lógica de los servicios permanece separada de Express.
+## Métodos de ServiceManager
 
 | Método | Descripción |
 | --- | --- |
 | `getServices()` | Obtiene todos los servicios |
 | `getServiceById(id)` | Obtiene un servicio o devuelve `null` |
 | `addService(serviceData)` | Valida, genera el ID y guarda un nuevo servicio |
-| `updateService(id, updatedData)` | Actualiza un servicio sin cambiar su ID |
-| `deleteService(id)` | Elimina un servicio |
+| `updateService(id, updatedData)` | Actualiza un servicio sin cambiar su ID; devuelve `null` si no existe |
+| `deleteService(id)` | Elimina un servicio; devuelve `null` si no existe |
 
 Los métodos son asíncronos y se utilizan con `await`.
 
@@ -250,16 +261,48 @@ import ServiceManager from "./src/managers/ServiceManager.js";
 
 const manager = new ServiceManager();
 
-const services = await manager.getServices();
-console.log(services);
+/* Consultar todos los servicios */
+console.log(await manager.getServices());
 
-const service = await manager.getServiceById(1);
-console.log(service);
+/* Crear un servicio de prueba */
+const createdService = await manager.addService({
+  name: "Servicio de prueba",
+  description: "Servicio para comprobar los metodos",
+  duration: 30,
+  price: 10000,
+  category: "Pruebas",
+  available: true
+});
+
+/* Consultar el servicio creado */
+console.log(
+  await manager.getServiceById(createdService.id)
+);
+
+/* Actualizar conservando el ID original */
+console.log(
+  await manager.updateService(createdService.id, {
+    price: 12000,
+    available: false
+  })
+);
+
+/* Eliminar solamente el servicio de prueba */
+console.log(
+  await manager.deleteService(createdService.id)
+);
+
+/* Comprobar que ya no existe: devuelve null */
+console.log(
+  await manager.getServiceById(createdService.id)
+);
 ```
 
-## Pruebas manuales
+## Pruebas manuales de la API
 
 Con el servidor en ejecución, abrir otra terminal de PowerShell.
+
+Los siguientes pasos se ejecutan en orden y en la misma terminal para conservar las variables.
 
 ### Consultar servicios
 
@@ -290,14 +333,25 @@ $createdService = Invoke-RestMethod `
 $createdService
 ```
 
-### Actualizar el servicio creado
+### Consultar el servicio creado
 
 Se utiliza el ID devuelto por el POST:
 
 ```powershell
 $serviceId = $createdService.id
 
+curl.exe -i "http://localhost:8080/api/services/$serviceId"
+```
+
+El resultado esperado es `200 OK` y los datos del servicio.
+
+### Actualizar y comprobar la protección del ID
+
+El campo `id` se incluye intencionalmente para comprobar que no pueda modificarse:
+
+```powershell
 $updateBody = @{
+  id = 999999
   price = 23000
   available = $false
 } | ConvertTo-Json
@@ -308,6 +362,41 @@ Invoke-RestMethod `
   -ContentType "application/json; charset=utf-8" `
   -Body $updateBody
 ```
+
+El precio y la disponibilidad deben actualizarse. El ID debe conservar su valor original.
+
+### Probar filtros
+
+```powershell
+curl.exe -i "http://localhost:8080/api/services?category=Salud&available=false"
+```
+
+La respuesta debe incluir el servicio de prueba actualizado.
+
+Para comprobar un filtro inválido:
+
+```powershell
+curl.exe -i "http://localhost:8080/api/services?available=hola"
+```
+
+El resultado esperado es `400 Bad Request`.
+
+### Rechazar un servicio incompleto
+
+```powershell
+try {
+  Invoke-RestMethod `
+    -Uri "http://localhost:8080/api/services" `
+    -Method POST `
+    -ContentType "application/json" `
+    -Body '{"name":"Servicio incompleto"}'
+} catch {
+  Write-Output ("Estado HTTP: " + [int]$_.Exception.Response.StatusCode)
+  Write-Output $_.ErrorDetails.Message
+}
+```
+
+El resultado esperado es un estado `400` con un mensaje sobre los campos faltantes. No debe crearse ningún servicio.
 
 ### Eliminar el servicio de prueba
 

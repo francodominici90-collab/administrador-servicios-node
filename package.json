@@ -1,5 +1,5 @@
 {
-  "name": "codigo_clase_1",
+  "name": "administrador-servicios-node",
   "version": "1.0.0",
   "description": "Administrador de servicios para un sistema de turnos y reservas",
   "main": "src/server.js",
