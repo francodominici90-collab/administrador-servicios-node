@@ -12,11 +12,16 @@ export async function getServices(req, res) {
 
     return res.status(200).json(services);
   } catch (error) {
-    return handleError(
-      error,
-      res,
-      "No se pudieron obtener los servicios"
-    );
+    if (error.statusCode === 400) {
+      return res.status(400).json({
+        error: error.message
+      });
+    }
+
+    return res.status(500).json({
+      error: "No se pudieron obtener los servicios",
+      detail: error.message
+    });
   }
 }
 
@@ -35,11 +40,10 @@ export async function getServiceById(req, res) {
 
     return res.status(200).json(service);
   } catch (error) {
-    return handleError(
-      error,
-      res,
-      "No se pudo obtener el servicio"
-    );
+    return res.status(500).json({
+      error: "No se pudo obtener el servicio",
+      detail: error.message
+    });
   }
 }
 
@@ -50,11 +54,9 @@ export async function createService(req, res) {
 
     return res.status(201).json(service);
   } catch (error) {
-    return handleError(
-      error,
-      res,
-      "No se pudo crear el servicio"
-    );
+    return res.status(400).json({
+      error: error.message
+    });
   }
 }
 
@@ -76,11 +78,9 @@ export async function updateService(req, res) {
 
     return res.status(200).json(service);
   } catch (error) {
-    return handleError(
-      error,
-      res,
-      "No se pudo actualizar el servicio"
-    );
+    return res.status(400).json({
+      error: error.message
+    });
   }
 }
 
@@ -99,25 +99,9 @@ export async function deleteService(req, res) {
 
     return res.status(200).json(service);
   } catch (error) {
-    return handleError(
-      error,
-      res,
-      "No se pudo eliminar el servicio"
-    );
+    return res.status(500).json({
+      error: "No se pudo eliminar el servicio",
+      detail: error.message
+    });
   }
-}
-
-/* Construir la respuesta de error */
-function handleError(error, res, fallbackMessage) {
-  const statusCode = error.statusCode ?? 500;
-
-  if (statusCode === 500) {
-    console.error(error);
-  }
-
-  return res.status(statusCode).json({
-    error: statusCode === 500
-      ? fallbackMessage
-      : error.message
-  });
 }

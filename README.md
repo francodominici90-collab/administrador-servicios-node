@@ -379,23 +379,13 @@ Si falta alguno, responde `404` sin guardar cambios. Si ambos existen, agrega el
 
 ## Manejo de errores
 
-Los services identifican los errores previsibles mediante la propiedad `statusCode`.
+Los controllers gestionan las respuestas HTTP y conservan el comportamiento de la entrega anterior:
 
-Los controllers capturan esos errores y construyen la respuesta HTTP:
+- `400`: datos o filtros inválidos. En POST y PUT de servicios también se utiliza para los errores de persistencia.
+- `404`: servicio o reserva inexistente.
+- `500`: errores internos en consultas y eliminación de servicios, y en operaciones de reservas.
 
-| Estado | Significado |
-| --- | --- |
-| 200 | Operación exitosa |
-| 201 | Recurso creado |
-| 400 | Datos o filtros inválidos |
-| 404 | Recurso inexistente |
-| 500 | Error interno inesperado |
-
-Los errores internos se registran en la terminal y la respuesta contiene un mensaje general.
-
-Durante esta refactorización se corrigió el manejo de errores de POST y PUT de servicios: los fallos internos de persistencia ahora responden `500`, en lugar de clasificarse como `400`.
-
-Las URLs, las respuestas exitosas y los errores habituales de validación o recursos inexistentes se conservan.
+Las respuestas de error contienen un mensaje descriptivo.
 
 ## Pruebas manuales con Postman
 
