@@ -1,56 +1,31 @@
-import ServiceManager from "../managers/ServiceManager.js";
+import * as servicesService from "../services/services.service.js";
 
-const serviceManager = new ServiceManager();
-
-/* Obtener todos los servicios y aplicar filtros */
+/* Obtener servicios y enviar los filtros al service */
 export async function getServices(req, res) {
   try {
-    let services = await serviceManager.getServices();
-
     const { category, available } = req.query;
 
-    if (category !== undefined) {
-      const categoryFilter = String(category).toLowerCase();
-
-      services = services.filter((service) => {
-        return service.category.toLowerCase() === categoryFilter;
-      });
-    }
-
-    if (available !== undefined) {
-      const availableFilter = String(available).toLowerCase();
-
-      if (
-        availableFilter !== "true" &&
-        availableFilter !== "false"
-      ) {
-        return res.status(400).json({
-          error: "available debe ser true o false"
-        });
-      }
-
-      const availableValue = availableFilter === "true";
-
-      services = services.filter((service) => {
-        return service.available === availableValue;
-      });
-    }
+    const services = await servicesService.getServices({
+      category,
+      available
+    });
 
     return res.status(200).json(services);
   } catch (error) {
-    return res.status(500).json({
-      error: "No se pudieron obtener los servicios",
-      detail: error.message
-    });
+    return handleError(
+      error,
+      res,
+      "No se pudieron obtener los servicios"
+    );
   }
 }
 
-/* Obtener un servicio por su ID */
+/* Obtener un servicio por ID */
 export async function getServiceById(req, res) {
   try {
     const { sid } = req.params;
 
-    const service = await serviceManager.getServiceById(sid);
+    const service = await servicesService.getServiceById(sid);
 
     if (service === null) {
       return res.status(404).json({
@@ -60,23 +35,26 @@ export async function getServiceById(req, res) {
 
     return res.status(200).json(service);
   } catch (error) {
-    return res.status(500).json({
-      error: "No se pudo obtener el servicio",
-      detail: error.message
-    });
+    return handleError(
+      error,
+      res,
+      "No se pudo obtener el servicio"
+    );
   }
 }
 
 /* Crear un servicio */
 export async function createService(req, res) {
   try {
-    const newService = await serviceManager.addService(req.body);
+    const service = await servicesService.createService(req.body);
 
-    return res.status(201).json(newService);
+    return res.status(201).json(service);
   } catch (error) {
-    return res.status(400).json({
-      error: error.message
-    });
+    return handleError(
+      error,
+      res,
+      "No se pudo crear el servicio"
+    );
   }
 }
 
@@ -85,22 +63,24 @@ export async function updateService(req, res) {
   try {
     const { sid } = req.params;
 
-    const updatedService = await serviceManager.updateService(
+    const service = await servicesService.updateService(
       sid,
       req.body
     );
 
-    if (updatedService === null) {
+    if (service === null) {
       return res.status(404).json({
         error: "Servicio no encontrado"
       });
     }
 
-    return res.status(200).json(updatedService);
+    return res.status(200).json(service);
   } catch (error) {
-    return res.status(400).json({
-      error: error.message
-    });
+    return handleError(
+      error,
+      res,
+      "No se pudo actualizar el servicio"
+    );
   }
 }
 
@@ -109,19 +89,35 @@ export async function deleteService(req, res) {
   try {
     const { sid } = req.params;
 
-    const deletedService = await serviceManager.deleteService(sid);
+    const service = await servicesService.deleteService(sid);
 
-    if (deletedService === null) {
+    if (service === null) {
       return res.status(404).json({
         error: "Servicio no encontrado"
       });
     }
 
-    return res.status(200).json(deletedService);
+    return res.status(200).json(service);
   } catch (error) {
-    return res.status(500).json({
-      error: "No se pudo eliminar el servicio",
-      detail: error.message
-    });
+    return handleError(
+      error,
+      res,
+      "No se pudo eliminar el servicio"
+    );
   }
+}
+
+/* Construir la respuesta de error */
+function handleError(error, res, fallbackMessage) {
+  const statusCode = error.statusCode ?? 500;
+
+  if (statusCode === 500) {
+    console.error(error);
+  }
+
+  return res.status(statusCode).json({
+    error: statusCode === 500
+      ? fallbackMessage
+      : error.message
+  });
 }

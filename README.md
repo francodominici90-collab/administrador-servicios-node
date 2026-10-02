@@ -1,10 +1,10 @@
 # Administrador de servicios y reservas — API REST
 
-Proyecto desarrollado con Node.js, Express y FileSystem para gestionar servicios y reservas de un sistema de turnos.
+API desarrollada con Node.js, Express y FileSystem para gestionar servicios y reservas de un sistema de turnos.
 
-Esta cuarta entrega reorganiza la API en tres capas: routers, controllers y managers. Se mantienen las URLs, los códigos de respuesta y el comportamiento de los endpoints de la entrega anterior.
+Esta quinta entrega incorpora las capas de services, repositories y DAO. Las responsabilidades de los managers anteriores se distribuyen entre esas capas y se elimina la carpeta `managers`.
 
-Los servicios se almacenan en `src/data/services.json` y las reservas en `src/data/bookings.json`. Los datos se conservan al reiniciar el servidor.
+Se conservan los ocho endpoints de la entrega anterior y la persistencia en archivos JSON.
 
 ## Tecnologías
 
@@ -13,11 +13,11 @@ Los servicios se almacenan en `src/data/services.json` y las reservas en `src/da
 - Express
 - dotenv
 - FileSystem mediante `node:fs/promises`
-- Persistencia en archivos JSON
+- Archivos JSON para persistencia
 
 ## Instalación
 
-Clonar el repositorio e ingresar en la carpeta del proyecto:
+Clonar el repositorio:
 
 ```bash
 git clone https://github.com/francodominici90-collab/administrador-servicios-node.git
@@ -39,18 +39,18 @@ PORT=8080
 NODE_ENV=development
 ```
 
-Las dos variables son obligatorias. Si falta alguna o está vacía, la aplicación falla al iniciar con un mensaje descriptivo.
+Ambas variables son obligatorias. Si falta alguna o está vacía, la aplicación falla al iniciar con un mensaje descriptivo.
 
-Además, `PORT` debe ser un número entero positivo y un puerto válido para iniciar el servidor.
+La configuración comprueba que `PORT` sea un entero positivo. Para iniciar el servidor debe utilizarse un puerto válido y disponible.
 
-El archivo `.env.example` contiene las variables sin valores:
+El archivo `.env.example` contiene:
 
 ```env
 PORT=
 NODE_ENV=
 ```
 
-El archivo `.env` y la carpeta `node_modules` están excluidos mediante `.gitignore`.
+`.env` y `node_modules/` están excluidos mediante `.gitignore`.
 
 ## Ejecución
 
@@ -60,79 +60,131 @@ Iniciar el servidor:
 npm start
 ```
 
-Iniciar en modo desarrollo con reinicio automático:
+Iniciar con reinicio automático ante cambios:
 
 ```bash
 npm run dev
 ```
 
-Con la configuración del ejemplo, las URLs base son:
+Con el puerto del ejemplo, la API está disponible en:
 
 ```text
-http://localhost:8080/api/services
-http://localhost:8080/api/bookings
+http://localhost:8080
 ```
 
 Para detener el servidor, presionar `Ctrl + C`.
 
-## Organización del proyecto
+## Arquitectura en capas
+
+El recorrido de las operaciones es:
+
+**Router → Controller → Service → Repository → DAO → archivo JSON**
+
+| Capa | Responsabilidad |
+| --- | --- |
+| Router | Define los endpoints y los conecta con las funciones del controller |
+| Controller | Lee los datos de la petición, llama al service y construye la respuesta HTTP |
+| Service | Valida los datos y aplica las reglas de negocio |
+| Repository | Ofrece métodos de acceso a datos y delega las operaciones al DAO |
+| DAO | Consulta y modifica los registros almacenados en archivos JSON |
+
+Los controllers utilizan `req.params`, `req.query` y `req.body`, y responden mediante `res.status().json()`.
+
+Los services, repositories y DAO no utilizan `req` ni `res`.
+
+El acceso a los archivos JSON se realiza exclusivamente en los DAO.
+
+### Organización de archivos
 
 | Archivo | Responsabilidad |
 | --- | --- |
 | `src/config/env.config.js` | Carga y valida las variables de entorno |
-| `src/controllers/services.controller.js` | Recibe las peticiones de servicios, llama al manager y construye las respuestas HTTP |
-| `src/controllers/bookings.controller.js` | Recibe las peticiones de reservas, consulta los managers y construye las respuestas HTTP |
-| `src/managers/ServiceManager.js` | Gestiona servicios y su persistencia |
-| `src/managers/BookingManager.js` | Gestiona reservas y su persistencia |
-| `src/routes/services.router.js` | Conecta los endpoints de servicios con su controller |
-| `src/routes/bookings.router.js` | Conecta los endpoints de reservas con su controller |
+| `src/routes/services.router.js` | Define las rutas de servicios |
+| `src/routes/bookings.router.js` | Define las rutas de reservas |
+| `src/controllers/services.controller.js` | Gestiona las peticiones y respuestas HTTP de servicios |
+| `src/controllers/bookings.controller.js` | Gestiona las peticiones y respuestas HTTP de reservas |
+| `src/services/services.service.js` | Valida servicios y procesa sus filtros |
+| `src/services/bookings.service.js` | Valida reservas y gestiona la incorporación de servicios |
+| `src/repositories/services.repository.js` | Delega el acceso a servicios en su DAO |
+| `src/repositories/bookings.repository.js` | Delega el acceso a reservas en su DAO |
+| `src/dao/services.dao.js` | Lee y escribe `services.json` |
+| `src/dao/bookings.dao.js` | Lee y escribe `bookings.json` |
 | `src/data/services.json` | Almacena los servicios |
 | `src/data/bookings.json` | Almacena las reservas |
-| `src/app.js` | Configura Express, interpreta JSON y monta los routers |
-| `src/server.js` | Inicia el servidor en el puerto configurado |
-| `package.json` | Define las dependencias y los scripts |
+| `src/app.js` | Configura Express y monta los routers |
+| `src/server.js` | Inicia el servidor |
+| `package.json` | Define dependencias y scripts |
 | `package-lock.json` | Registra las versiones de las dependencias |
-| `.env.example` | Documenta las variables necesarias |
+| `.env.example` | Documenta las variables requeridas |
 | `.gitignore` | Excluye archivos que no deben versionarse |
-| `README.md` | Documenta la instalación y el uso del proyecto |
+| `README.md` | Documenta la instalación, arquitectura y uso |
 
-### Separación de responsabilidades
+### Funciones por capa
 
-La API se organiza en tres capas:
+| Recurso | Controller y service | Repository y DAO |
+| --- | --- | --- |
+| Servicios | `getServices`, `getServiceById`, `createService`, `updateService`, `deleteService` | `getAll`, `getById`, `create`, `update`, `delete` |
+| Reservas | `createBooking`, `getBookingById`, `addServiceToBooking` | `create`, `getById`, `update` |
 
-- **Routers:** definen los métodos HTTP y las rutas, y los conectan con las funciones de los controllers. No contienen validaciones ni acceso a archivos.
-- **Controllers:** leen `req.params`, `req.query` y `req.body`, llaman a los managers y responden mediante `res.status().json()`. También procesan los filtros y manejan los errores de las peticiones.
-- **Managers:** contienen la lógica de datos, las validaciones y la persistencia mediante `node:fs/promises`. No utilizan `req` ni `res`.
+Las funciones de acceso a datos son asíncronas. Los controllers esperan sus resultados mediante `await`.
 
-`app.js` configura Express y monta los routers. `server.js` inicia el servidor utilizando las variables de entorno.
+### Validaciones centralizadas
 
-### Flujo de una petición
+Las validaciones se concentran en los services.
 
-Por ejemplo, al consultar `GET /api/services/1`:
+En particular, `bookings.service.js` comprueba que existan la reserva y el servicio antes de asociarlos. El controller de reservas ya no repite esas consultas.
 
-1. Express recibe la petición y la dirige al router de servicios.
-2. El router ejecuta `getServiceById` del controller.
-3. El controller obtiene `sid` desde `req.params`.
-4. El controller llama a `ServiceManager.getServiceById(sid)`.
-5. El manager lee el archivo JSON y busca el servicio.
-6. El controller responde con el servicio y estado `200`, o con un error `404` si no existe.
+Si una operación devuelve `null`, el controller puede convertir ese resultado en una respuesta `404`. Esto interpreta el resultado de la operación sin realizar otra consulta.
 
-### Funciones de los controllers
+Los DAO comprueban que el contenido leído del archivo sea un array. Esta comprobación corresponde al formato del almacenamiento, no a una regla de negocio.
 
-| Controller | Funciones |
-| --- | --- |
-| `services.controller.js` | `getServices`, `getServiceById`, `createService`, `updateService`, `deleteService` |
-| `bookings.controller.js` | `createBooking`, `getBookingById`, `addServiceToBooking` |
+### Regla de cantidades en reservas
 
-Los controllers utilizan funciones exportadas. Los managers conservan su implementación mediante clases.
+La lógica para agregar servicios se encuentra en `bookings.service.js`:
 
-Para agregar un servicio a una reserva, el controller comprueba primero la reserva mediante `BookingManager` y después el servicio mediante `ServiceManager`.
+- Si el servicio todavía no está asociado, se agrega con `quantity: 1`.
+- Si ya está asociado, se incrementa su cantidad.
+- El array conserva un único elemento por servicio.
 
-`BookingManager` conserva también sus comprobaciones de existencia para proteger las operaciones cuando se utiliza directamente. Esta decisión repite algunas lecturas de archivos, pero mantiene las validaciones independientes de la capa HTTP.
+El repository y el DAO reciben los datos actualizados para guardarlos; no calculan las cantidades.
+
+### Generación y conservación del ID
+
+Los DAO generan los IDs numéricos tomando el mayor ID existente en el archivo y sumando uno.
+
+Los services de creación seleccionan los campos permitidos y no trasladan un ID proporcionado por el cliente.
+
+En la actualización de servicios, el service excluye el ID del body. El DAO también conserva el identificador del registro almacenado.
+
+### Nombre interno deleteById
+
+La consigna requiere que el repository y el DAO de servicios expongan una función llamada `delete`.
+
+Como `delete` es una palabra reservada de JavaScript, la función se declara internamente como `deleteById` y se exporta con un alias:
+
+```javascript
+export { deleteById as delete };
+```
+
+Por eso puede utilizarse de esta manera:
+
+```javascript
+servicesDao.delete(id);
+```
+
+No son dos operaciones diferentes: es la misma función con un nombre interno y otro nombre al exportarla.
+
+### Función del repository
+
+Actualmente los repositories delegan sus métodos directamente a los DAO.
+
+Esta separación ofrece un punto de acceso a datos para los services y prepara el proyecto para reemplazar la persistencia en archivos por otra implementación.
+
+Una futura migración a MongoDB deberá conservar los contratos de estas operaciones y considerar diferencias como el formato de los IDs.
 
 ## Recurso services
 
-Cada servicio tiene la siguiente estructura:
+Ejemplo de servicio:
 
 ```json
 {
@@ -146,82 +198,50 @@ Cada servicio tiene la siguiente estructura:
 }
 ```
 
-| Campo | Descripción |
+| Campo | Validación |
 | --- | --- |
-| `id` | Identificador numérico generado internamente |
-| `name` | Nombre del servicio |
-| `description` | Descripción del servicio |
-| `duration` | Duración en minutos, mayor que cero |
-| `price` | Precio, mayor o igual que cero |
-| `category` | Categoría del servicio |
-| `available` | Disponibilidad expresada como booleano |
+| `id` | Generado internamente; no modificable por el cliente |
+| `name` | Texto obligatorio y no vacío |
+| `description` | Texto obligatorio y no vacío |
+| `duration` | Número finito mayor que cero |
+| `price` | Número finito mayor o igual que cero |
+| `category` | Texto obligatorio y no vacío |
+| `available` | Booleano obligatorio |
 
-Todos los campos, excepto `id`, son obligatorios al crear un servicio.
+El valor `false` es válido para `available`, y `0` es válido para `price`.
 
-Los campos de texto no pueden estar vacíos. El valor `false` es válido para `available` y el valor `0` es válido para `price`.
+Al guardar se eliminan los espacios de los extremos de los campos de texto.
 
 ## Endpoints de servicios
 
-| Método | Ruta | Comportamiento | Estados principales |
+| Método | Ruta | Comportamiento | Estados habituales |
 | --- | --- | --- | --- |
-| GET | `/api/services` | Lista los servicios y permite filtrarlos | 200, 400 |
-| GET | `/api/services/:sid` | Busca un servicio por ID | 200, 404 |
+| GET | `/api/services` | Lista y filtra servicios | 200, 400 |
+| GET | `/api/services/:sid` | Consulta un servicio | 200, 404 |
 | POST | `/api/services` | Crea un servicio | 201, 400 |
 | PUT | `/api/services/:sid` | Actualiza un servicio | 200, 400, 404 |
 | DELETE | `/api/services/:sid` | Elimina un servicio | 200, 404 |
 
-### GET /api/services
+### Filtros
 
-Devuelve un array con todos los servicios.
+`GET /api/services` admite:
 
-Acepta los siguientes filtros opcionales:
+- `category`: coincidencia de categoría sin distinguir mayúsculas y minúsculas.
+- `available`: admite `true` o `false`, sin distinguir mayúsculas y minúsculas.
 
-- `category`: filtra por categoría, sin distinguir mayúsculas y minúsculas.
-- `available`: filtra por disponibilidad utilizando `true` o `false`, sin distinguir mayúsculas y minúsculas.
-
-Los filtros pueden combinarse:
+Pueden combinarse:
 
 ```text
-GET /api/services?category=Consultas&available=true
+http://localhost:8080/api/services?category=Consultas&available=true
 ```
 
-Si ningún servicio coincide, responde con estado `200` y un array vacío:
+Un valor inválido para `available` produce una respuesta `400`.
 
-```json
-[]
-```
+Si no hay coincidencias, devuelve `200` y un array vacío.
 
-Si `available` tiene un valor inválido, responde con estado `400`.
+### Creación
 
-### GET /api/services/:sid
-
-Ejemplo:
-
-```text
-GET /api/services/1
-```
-
-Responde con estado `200` y el servicio encontrado.
-
-Si no existe, responde con estado `404`:
-
-```json
-{
-  "error": "Servicio no encontrado"
-}
-```
-
-### POST /api/services
-
-Crea un servicio con los datos del body.
-
-Enviar el encabezado:
-
-```text
-Content-Type: application/json
-```
-
-Ejemplo de body:
+Ejemplo de body para `POST /api/services`:
 
 ```json
 {
@@ -234,21 +254,13 @@ Ejemplo de body:
 }
 ```
 
-No se debe enviar el `id`: lo genera internamente `ServiceManager`.
+Todos estos campos son obligatorios. No se debe enviar `id`.
 
-Responde con estado `201` y el servicio creado.
+La respuesta exitosa tiene estado `201` y contiene el servicio creado.
 
-Si faltan campos o los valores son inválidos, responde con estado `400`.
+### Actualización
 
-### PUT /api/services/:sid
-
-Actualiza los campos enviados en el body y conserva los restantes.
-
-```text
-PUT /api/services/2
-```
-
-Ejemplo de body:
+Ejemplo de body para `PUT /api/services/:sid`:
 
 ```json
 {
@@ -257,27 +269,27 @@ Ejemplo de body:
 }
 ```
 
-Responde con estado `200` y el servicio actualizado.
+Se actualizan los campos enviados y se conservan los restantes. Los valores se validan antes de guardar.
 
-El ID original no puede modificarse. Si se incluye un `id` en el body, se ignora.
+Si el body incluye `id`, se ignora y se mantiene el ID original.
 
-Si el servicio no existe, responde con estado `404`. Si los valores de los campos del servicio son inválidos, responde con estado `400`.
+La actualización exige un objeto; no acepta un array como body.
 
-### DELETE /api/services/:sid
+### Consulta y eliminación
 
-Ejemplo:
+Si el servicio existe, GET devuelve el servicio y DELETE devuelve el registro eliminado, ambos con estado `200`.
 
-```text
-DELETE /api/services/2
+Si no existe, responden con estado `404`:
+
+```json
+{
+  "error": "Servicio no encontrado"
+}
 ```
-
-Responde con estado `200` y el servicio eliminado.
-
-Si no existe, responde con estado `404`.
 
 ## Recurso bookings
 
-Cada reserva tiene la siguiente estructura:
+Ejemplo de reserva:
 
 ```json
 {
@@ -296,33 +308,36 @@ Cada reserva tiene la siguiente estructura:
 }
 ```
 
-| Campo | Descripción |
+| Campo | Validación o comportamiento |
 | --- | --- |
-| `id` | Identificador numérico generado internamente |
-| `clientName` | Nombre del cliente |
-| `clientEmail` | Correo electrónico del cliente |
-| `date` | Fecha válida con formato `YYYY-MM-DD` |
+| `id` | Generado internamente |
+| `clientName` | Texto obligatorio y no vacío |
+| `clientEmail` | Texto obligatorio con formato de correo |
+| `date` | Fecha existente con formato `YYYY-MM-DD` |
 | `time` | Hora con formato `HH:mm`, entre `00:00` y `23:59` |
-| `status` | Estado de la reserva; por defecto, `pending` |
-| `services` | Array con referencias a servicios y sus cantidades |
+| `status` | Texto no vacío; por defecto `pending` |
+| `services` | Array de referencias y cantidades |
 
-Cada elemento de `services` almacena únicamente el ID del servicio en `service` y su cantidad en `quantity`.
+Cada elemento de `services` contiene únicamente:
 
-Si se agrega nuevamente el mismo servicio, aumenta su cantidad sin duplicar el elemento.
+```json
+{
+  "service": 1,
+  "quantity": 1
+}
+```
 
 ## Endpoints de reservas
 
-| Método | Ruta | Comportamiento | Estados principales |
+| Método | Ruta | Comportamiento | Estados habituales |
 | --- | --- | --- | --- |
 | POST | `/api/bookings` | Crea una reserva | 201, 400 |
-| GET | `/api/bookings/:bid` | Busca una reserva por ID | 200, 404 |
-| POST | `/api/bookings/:bid/services/:sid` | Agrega un servicio a una reserva | 200, 404 |
+| GET | `/api/bookings/:bid` | Consulta una reserva | 200, 404 |
+| POST | `/api/bookings/:bid/services/:sid` | Agrega un servicio o aumenta su cantidad | 200, 404 |
 
-Los errores internos de lectura o escritura en estas rutas responden con estado `500`.
+### Creación
 
-### POST /api/bookings
-
-Enviar un body JSON con los datos del cliente y del turno:
+Ejemplo de body para `POST /api/bookings`:
 
 ```json
 {
@@ -330,30 +345,21 @@ Enviar un body JSON con los datos del cliente y del turno:
   "clientEmail": "cliente@example.com",
   "date": "2026-10-05",
   "time": "15:30",
-  "status": "pending",
   "services": []
 }
 ```
 
-Los campos `clientName`, `clientEmail`, `date` y `time` son obligatorios.
+Si se omite `status`, se guarda como `pending`.
 
-Si se omite `status`, se utiliza `pending`. Si se proporciona, debe ser un texto no vacío.
+Las reservas se crean sin servicios. El campo `services` puede omitirse o enviarse como un array vacío.
 
-En esta implementación las reservas se crean sin servicios. El campo `services` puede omitirse o enviarse como un array vacío. Los servicios se agregan mediante el endpoint específico.
+No se debe enviar el ID.
 
-El ID se genera internamente y no debe enviarse en el body.
+La respuesta exitosa tiene estado `201` y contiene la reserva creada.
 
-La respuesta exitosa tiene estado `201` y contiene la reserva creada. Los datos inválidos producen una respuesta `400`.
+### Consulta
 
-### GET /api/bookings/:bid
-
-Ejemplo:
-
-```text
-GET /api/bookings/1
-```
-
-Responde con estado `200` y la reserva encontrada.
+`GET /api/bookings/:bid` responde con estado `200` y la reserva.
 
 Si no existe, responde con estado `404`:
 
@@ -363,259 +369,240 @@ Si no existe, responde con estado `404`:
 }
 ```
 
-### POST /api/bookings/:bid/services/:sid
+### Incorporación de servicios
 
-Ejemplo:
+`POST /api/bookings/:bid/services/:sid` no necesita body.
+
+El service comprueba primero la existencia de la reserva y después la del servicio.
+
+Si falta alguno, responde `404` sin guardar cambios. Si ambos existen, agrega el servicio o incrementa su cantidad y responde `200` con la reserva actualizada.
+
+## Manejo de errores
+
+Los services identifican los errores previsibles mediante la propiedad `statusCode`.
+
+Los controllers capturan esos errores y construyen la respuesta HTTP:
+
+| Estado | Significado |
+| --- | --- |
+| 200 | Operación exitosa |
+| 201 | Recurso creado |
+| 400 | Datos o filtros inválidos |
+| 404 | Recurso inexistente |
+| 500 | Error interno inesperado |
+
+Los errores internos se registran en la terminal y la respuesta contiene un mensaje general.
+
+Durante esta refactorización se corrigió el manejo de errores de POST y PUT de servicios: los fallos internos de persistencia ahora responden `500`, en lugar de clasificarse como `400`.
+
+Las URLs, las respuestas exitosas y los errores habituales de validación o recursos inexistentes se conservan.
+
+## Pruebas manuales con Postman
+
+Iniciar el servidor antes de enviar peticiones.
+
+En Postman, seleccionar el método HTTP en su selector e ingresar únicamente la URL en el campo de dirección.
+
+Para enviar un body:
+
+1. Abrir la pestaña **Body**.
+2. Seleccionar **raw**.
+3. Elegir **JSON**.
+4. Ingresar el contenido.
+5. Presionar **Send**.
+
+Para peticiones sin body, seleccionar **none**.
+
+Estas pruebas modifican los archivos JSON. Utilizar datos ficticios y anotar los IDs devueltos.
+
+### 1. Consultar servicios
+
+Método: **GET**
 
 ```text
-POST /api/bookings/1/services/1
+http://localhost:8080/api/services
 ```
 
-Agrega el servicio con ID `1` a la reserva con ID `1`. Esta petición no necesita body.
+Esperado: `200` y el array de servicios.
 
-Antes de guardar, se comprueba que ambos recursos existan.
+Consultar el servicio original:
 
-- Si el servicio todavía no está en la reserva, se agrega con `quantity: 1`.
-- Si ya está, se incrementa `quantity` en una unidad.
-- Si no existe la reserva o el servicio, se responde con estado `404` sin modificar el archivo.
-
-Si ambos recursos son inexistentes, se informa primero que la reserva no fue encontrada.
-
-La respuesta exitosa tiene estado `200` y contiene la reserva actualizada.
-
-## Managers
-
-### ServiceManager
-
-| Método | Descripción |
-| --- | --- |
-| `getServices()` | Obtiene todos los servicios |
-| `getServiceById(id)` | Devuelve un servicio o `null` |
-| `addService(serviceData)` | Valida, genera el ID y guarda un servicio |
-| `updateService(id, updatedData)` | Actualiza un servicio sin cambiar su ID; devuelve `null` si no existe |
-| `deleteService(id)` | Elimina un servicio; devuelve `null` si no existe |
-
-### BookingManager
-
-| Método | Descripción |
-| --- | --- |
-| `createBooking(bookingData)` | Valida los datos, genera el ID y guarda una reserva |
-| `getBookingById(id)` | Devuelve una reserva o `null` |
-| `addServiceToBooking(bookingId, serviceId)` | Valida ambos recursos y agrega el servicio o incrementa su cantidad |
-
-Todos estos métodos son asíncronos y se utilizan con `await`.
-
-## Recepción de datos HTTP
-
-Los controllers utilizan:
-
-- `req.params` para obtener `sid` y `bid`.
-- `req.query` para obtener los filtros de servicios.
-- `req.body` para obtener los datos de creación y actualización.
-
-`express.json()` se configura en `app.js` antes de montar los routers para interpretar los cuerpos JSON.
-
-## Pruebas manuales
-
-Estas pruebas permiten verificar las operaciones de la API y comprobar que la separación en controllers conserva su comportamiento.
-
-Durante la cuarta entrega se comprobaron:
-
-- Consulta de servicios y filtro por disponibilidad.
-- Creación, actualización y eliminación de servicios.
-- Protección del ID durante la actualización.
-- Rechazo de servicios incompletos.
-- Creación y consulta de reservas.
-- Incorporación de un servicio y aumento de su cantidad al repetirlo.
-- Respuestas 404 para reservas o servicios inexistentes.
-
-Los datos ficticios generados durante esas pruebas se retiraron después de verificarlas, conservando los datos de ejemplo del repositorio.
-
-### Preparación
-
-Iniciar el servidor y abrir otra terminal de PowerShell.
-
-Ejecutar los siguientes ejemplos en orden y en la misma terminal para conservar las variables.
-
-Las pruebas modifican los archivos JSON. Utilizar datos ficticios.
-
-Las pruebas son manuales; el proyecto no incluye actualmente un script `npm test`.
-
-### Crear un servicio de prueba
-
-```powershell
-$serviceBody = @{
-  name = "Servicio de prueba"
-  description = "Servicio para comprobar la API"
-  duration = 30
-  price = 10000
-  category = "Pruebas"
-  available = $true
-} | ConvertTo-Json
-
-$serviceResponse = Invoke-WebRequest `
-  -Uri "http://localhost:8080/api/services" `
-  -Method POST `
-  -ContentType "application/json; charset=utf-8" `
-  -Body $serviceBody `
-  -UseBasicParsing
-
-$serviceResponse.StatusCode
-
-$createdService = $serviceResponse.Content | ConvertFrom-Json
-$serviceId = $createdService.id
-
-$createdService
+```text
+http://localhost:8080/api/services/1
 ```
 
-El resultado esperado es `201` y un servicio con ID generado.
+Esperado: `200` si se conservan los datos de ejemplo.
 
-### Consultar servicios
+Consultar un ID inexistente:
 
-```powershell
-curl.exe -i http://localhost:8080/api/services
-
-curl.exe -i "http://localhost:8080/api/services/$serviceId"
+```text
+http://localhost:8080/api/services/999
 ```
 
-Ambas peticiones deben responder `200`.
+Esperado: `404`, siempre que ese ID no exista.
 
-La opción `-i` permite visualizar los encabezados y el estado HTTP.
+### 2. Comprobar un filtro inválido
 
-### Actualizar y comprobar la protección del ID
+Método: **GET**
 
-El campo `id` se incluye intencionalmente para comprobar que no pueda modificarse:
-
-```powershell
-$updateBody = @{
-  id = 999999
-  price = 12000
-  available = $false
-} | ConvertTo-Json
-
-$updateResponse = Invoke-WebRequest `
-  -Uri "http://localhost:8080/api/services/$serviceId" `
-  -Method PUT `
-  -ContentType "application/json; charset=utf-8" `
-  -Body $updateBody `
-  -UseBasicParsing
-
-$updateResponse.StatusCode
-$updateResponse.Content | ConvertFrom-Json
+```text
+http://localhost:8080/api/services?available=hola
 ```
 
-El resultado esperado es `200`.
+Esperado: `400`, indicando que `available` debe ser `true` o `false`.
 
-El precio y la disponibilidad deben actualizarse, manteniendo el ID original.
+### 3. Crear un servicio temporal
 
-### Probar filtros
+Método: **POST**
 
-```powershell
-curl.exe -i "http://localhost:8080/api/services?category=Pruebas&available=false"
+```text
+http://localhost:8080/api/services
 ```
 
-La respuesta debe incluir el servicio de prueba.
-
-Para comprobar un filtro inválido:
-
-```powershell
-curl.exe -i "http://localhost:8080/api/services?available=hola"
-```
-
-El resultado esperado es `400 Bad Request`.
-
-### Eliminar el servicio de prueba
-
-Este servicio aún no está asociado a ninguna reserva:
-
-```powershell
-curl.exe -i -X DELETE "http://localhost:8080/api/services/$serviceId"
-
-curl.exe -i "http://localhost:8080/api/services/$serviceId"
-```
-
-La eliminación debe responder `200` y la consulta posterior debe responder `404`.
-
-### Rechazar un servicio incompleto
-
-```powershell
-try {
-  Invoke-WebRequest `
-    -Uri "http://localhost:8080/api/services" `
-    -Method POST `
-    -ContentType "application/json" `
-    -Body '{}' `
-    -UseBasicParsing
-} catch {
-  Write-Output ("Estado HTTP: " + [int]$_.Exception.Response.StatusCode)
-  Write-Output $_.ErrorDetails.Message
-}
-```
-
-Debe responder `400` con un mensaje que indique los campos requeridos.
-
-### Crear una reserva
-
-```powershell
-$bookingBody = @{
-  clientName = "Prueba controllers"
-  clientEmail = "controllers@example.com"
-  date = "2026-10-05"
-  time = "16:00"
-  services = @()
-} | ConvertTo-Json
-
-$bookingResponse = Invoke-WebRequest `
-  -Uri "http://localhost:8080/api/bookings" `
-  -Method POST `
-  -ContentType "application/json; charset=utf-8" `
-  -Body $bookingBody `
-  -UseBasicParsing
-
-$bookingResponse.StatusCode
-
-$createdBooking = $bookingResponse.Content | ConvertFrom-Json
-$bookingId = $createdBooking.id
-
-$createdBooking | ConvertTo-Json -Depth 5
-```
-
-El resultado esperado es `201`, un ID generado, `status: "pending"` y `services: []`.
-
-### Consultar la reserva
-
-```powershell
-curl.exe -i "http://localhost:8080/api/bookings/$bookingId"
-```
-
-Debe responder `200` y devolver la reserva creada.
-
-### Agregar un servicio a la reserva
-
-Este ejemplo utiliza el servicio original con ID `1`. Si ya no existe, reemplazar ese ID por el de un servicio existente.
-
-```powershell
-curl.exe -i -X POST "http://localhost:8080/api/bookings/$bookingId/services/1"
-```
-
-Debe responder `200`. La reserva debe contener este elemento dentro de `services`:
+Body:
 
 ```json
 {
-  "service": 1,
-  "quantity": 1
+  "name": "Prueba DAO",
+  "description": "Servicio temporal para probar la arquitectura",
+  "duration": 30,
+  "price": 10000,
+  "category": "Pruebas",
+  "available": true
 }
 ```
 
-Repetir la petición:
+Esperado: `201`. Anotar el ID generado como `ID_SERVICIO`.
 
-```powershell
-curl.exe -i -X POST "http://localhost:8080/api/bookings/$bookingId/services/1"
+En las siguientes URLs, reemplazar `ID_SERVICIO` por ese número.
+
+### 4. Actualizar y comprobar la protección del ID
+
+Método: **PUT**
+
+```text
+http://localhost:8080/api/services/ID_SERVICIO
 ```
 
-Debe responder `200` y conservar un único elemento con `quantity: 2`.
+Body:
 
-### Comprobar persistencia
+```json
+{
+  "id": 999999,
+  "price": 12000,
+  "available": false
+}
+```
+
+Esperado: `200`, precio `12000`, disponibilidad `false` y el ID original conservado.
+
+### 5. Rechazar una actualización inválida
+
+Método: **PUT**, en la misma URL.
+
+Body:
+
+```json
+{
+  "price": -1
+}
+```
+
+Esperado: `400`.
+
+Consultar después el servicio mediante **GET**, con **Body → none**. El precio debe seguir siendo `12000`.
+
+### 6. Eliminar el servicio temporal
+
+Método: **DELETE**, con **Body → none**.
+
+```text
+http://localhost:8080/api/services/ID_SERVICIO
+```
+
+Esperado: `200`.
+
+Consultar la misma URL mediante **GET**. Debe responder `404`.
+
+### 7. Crear una reserva
+
+Método: **POST**
+
+```text
+http://localhost:8080/api/bookings
+```
+
+Body:
+
+```json
+{
+  "clientName": "Prueba DAO",
+  "clientEmail": "dao@example.com",
+  "date": "2026-10-05",
+  "time": "16:00",
+  "services": []
+}
+```
+
+Esperado: `201`, estado `pending` y array de servicios vacío.
+
+Anotar el ID generado y utilizarlo en lugar de `ID_RESERVA`.
+
+### 8. Agregar dos veces un servicio
+
+Método: **POST**, con **Body → none**.
+
+```text
+http://localhost:8080/api/bookings/ID_RESERVA/services/1
+```
+
+Este ejemplo utiliza el servicio original con ID `1`. Si no existe, utilizar otro servicio existente.
+
+Primera petición: `200` y `quantity: 1`.
+
+Repetir la petición: `200` y `quantity: 2`, conservando un único elemento para ese servicio.
+
+### 9. Comprobar recursos inexistentes
+
+Método: **POST**, con **Body → none**.
+
+Servicio inexistente:
+
+```text
+http://localhost:8080/api/bookings/ID_RESERVA/services/999
+```
+
+Esperado: `404` y `"Servicio no encontrado"`.
+
+Reserva inexistente:
+
+```text
+http://localhost:8080/api/bookings/999/services/1
+```
+
+Esperado: `404` y `"Reserva no encontrada"`.
+
+Utilizar IDs que realmente no existan en los archivos.
+
+### 10. Rechazar una reserva incompleta
+
+Método: **POST**
+
+```text
+http://localhost:8080/api/bookings
+```
+
+Body:
+
+```json
+{
+  "clientName": "Prueba incompleta"
+}
+```
+
+Esperado: `400`, indicando que `clientEmail` es obligatorio.
+
+### 11. Comprobar persistencia
 
 Detener el servidor con `Ctrl + C` y volver a iniciarlo:
 
@@ -623,60 +610,38 @@ Detener el servidor con `Ctrl + C` y volver a iniciarlo:
 npm start
 ```
 
-En la terminal de pruebas, consultar la reserva:
+En Postman, seleccionar **GET** y **Body → none**:
 
-```powershell
-curl.exe -i "http://localhost:8080/api/bookings/$bookingId"
+```text
+http://localhost:8080/api/bookings/ID_RESERVA
 ```
 
-Debe responder `200` y conservar los datos, incluyendo `quantity: 2`.
+Esperado: `200` y el servicio agregado con `quantity: 2`.
 
-### Comprobar recursos inexistentes
+Esto comprueba que la reserva se conserva después del reinicio.
 
-Utilizar IDs que no existan en los archivos JSON. Por ejemplo, si no existe el ID `999`:
+### Resultado de la verificación
 
-```powershell
-curl.exe -i http://localhost:8080/api/bookings/999
+Las pruebas anteriores se realizaron manualmente durante esta entrega.
 
-curl.exe -i -X POST "http://localhost:8080/api/bookings/$bookingId/services/999"
+También se comprobó que no quedaran referencias a los managers anteriores y que el servidor continuara funcionando después de eliminarlos.
 
-curl.exe -i -X POST http://localhost:8080/api/bookings/999/services/1
-```
+Al finalizar se retiraron los datos temporales de las pruebas, conservando los datos de ejemplo del repositorio.
 
-Las tres peticiones deben responder `404` sin modificar las reservas.
+Actualmente no se incluye una suite de pruebas automatizadas ni un script `npm test`.
 
-### Rechazar una reserva incompleta
+## Alcance y limitaciones
 
-```powershell
-try {
-  Invoke-WebRequest `
-    -Uri "http://localhost:8080/api/bookings" `
-    -Method POST `
-    -ContentType "application/json" `
-    -Body '{"clientName":"Prueba incompleta"}' `
-    -UseBasicParsing
-} catch {
-  Write-Output ("Estado HTTP: " + [int]$_.Exception.Response.StatusCode)
-  Write-Output $_.ErrorDetails.Message
-}
-```
+Esta entrega incorpora la arquitectura de cinco capas utilizando FileSystem.
 
-Debe responder `400` e indicar que falta `clientEmail`. No debe agregar una reserva al archivo.
-
-## Alcance de esta entrega
-
-La cuarta entrega reorganiza internamente la API mediante controllers, conservando los endpoints de servicios y reservas.
-
-En esta etapa:
-
-- La persistencia se realiza mediante archivos JSON.
 - No se agregan endpoints nuevos.
-- No se utiliza MongoDB, Mongoose, repositories ni DAO.
+- No se utiliza todavía MongoDB ni Mongoose.
 - No se incluyen vistas ni WebSockets.
 - No se comprueba la disponibilidad de horarios ni se evitan turnos superpuestos.
-- Al agregar un servicio a una reserva se valida su existencia, pero no su campo `available`.
-- No se implementan endpoints de edición o eliminación de reservas.
+- Para asociar un servicio se valida su existencia, pero no su campo `available`.
+- No hay endpoints de edición o eliminación de reservas.
 - Eliminar un servicio no elimina sus referencias en reservas existentes.
+- Las operaciones sobre JSON no implementan bloqueo ni transacciones; las escrituras simultáneas pueden sobrescribir cambios.
 
 ## Autor
 
