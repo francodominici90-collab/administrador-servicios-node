@@ -1,106 +1,90 @@
-import { readFile, writeFile } from "node:fs/promises";
+import mongoose from "mongoose";
+import Service from "../models/service.model.js";
 
-const servicesFile = new URL(
-  "../data/services.json",
-  import.meta.url
-);
-
-/* Leer los servicios del archivo */
 export async function getAll() {
-  const content = await readFile(servicesFile, "utf-8");
-  const services = JSON.parse(content);
+  const services = await Service.find().lean();
 
-  if (!Array.isArray(services)) {
-    throw new Error(
-      "El archivo services.json debe contener un array"
-    );
-  }
-
-  return services;
+  return services.map(toService);
 }
 
-/* Buscar un servicio por ID */
 export async function getById(id) {
-  const services = await getAll();
+  if (!mongoose.isObjectIdOrHexString(id)) {
+    return null;
+  }
 
-  return services.find((service) => {
-    return service.id === Number(id);
-  }) ?? null;
+  const service = await Service.findById(id).lean();
+
+  return toService(service);
 }
 
-/* Guardar un nuevo servicio con ID generado */
 export async function create(serviceData) {
-  const services = await getAll();
+  const service = await Service.create(toPersistenceData(serviceData));
 
-  const lastId = services.reduce((highestId, service) => {
-    return Math.max(highestId, service.id);
-  }, 0);
-
-  const newService = {
-    ...serviceData,
-    id: lastId + 1
-  };
-
-  services.push(newService);
-
-  await saveAll(services);
-
-  return newService;
+  return toService(service);
 }
 
-/* Actualizar un registro existente */
 export async function update(id, updatedData) {
-  const services = await getAll();
-
-  const serviceIndex = services.findIndex((service) => {
-    return service.id === Number(id);
-  });
-
-  if (serviceIndex === -1) {
+  if (!mongoose.isObjectIdOrHexString(id)) {
     return null;
   }
 
-  const updatedService = {
-    ...services[serviceIndex],
-    ...updatedData,
-    id: services[serviceIndex].id
-  };
+  const service = await Service.findByIdAndUpdate(
+    id,
+    { $set: toPersistenceData(updatedData) },
+    {
+      returnDocument: "after",
+      runValidators: true
+    }
+  ).lean();
 
-  services[serviceIndex] = updatedService;
-
-  await saveAll(services);
-
-  return updatedService;
+  return toService(service);
 }
 
-/* Eliminar un registro existente */
 async function deleteById(id) {
-  const services = await getAll();
-
-  const serviceIndex = services.findIndex((service) => {
-    return service.id === Number(id);
-  });
-
-  if (serviceIndex === -1) {
+  if (!mongoose.isObjectIdOrHexString(id)) {
     return null;
   }
 
-  const [deletedService] = services.splice(serviceIndex, 1);
+  const service = await Service.findByIdAndDelete(id).lean();
 
-  await saveAll(services);
-
-  return deletedService;
-}
-
-/* Escribir el array completo en el archivo */
-async function saveAll(services) {
-  const content = JSON.stringify(services, null, 2);
-
-  await writeFile(
-    servicesFile,
-    `${content}\n`,
-    "utf-8"
-  );
+  return toService(service);
 }
 
 export { deleteById as delete };
+
+function toPersistenceData(data) {
+  const fields = [
+    "name",
+    "description",
+    "duration",
+    "price",
+    "category",
+    "available"
+  ];
+
+  const result = {};
+
+  for (const field of fields) {
+    if (Object.hasOwn(data, field)) {
+      result[field] = data[field];
+    }
+  }
+
+  return result;
+}
+
+function toService(document) {
+  if (!document) {
+    return null;
+  }
+
+  return {
+    id: document._id.toString(),
+    name: document.name,
+    description: document.description,
+    duration: document.duration,
+    price: document.price,
+    category: document.category,
+    available: document.available
+  };
+}

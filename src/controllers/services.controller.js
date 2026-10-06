@@ -1,6 +1,5 @@
 import * as servicesService from "../services/services.service.js";
 
-/* Obtener servicios y enviar los filtros al service */
 export async function getServices(req, res) {
   try {
     const { category, available } = req.query;
@@ -12,24 +11,13 @@ export async function getServices(req, res) {
 
     return res.status(200).json(services);
   } catch (error) {
-    if (error.statusCode === 400) {
-      return res.status(400).json({
-        error: error.message
-      });
-    }
-
-    return res.status(500).json({
-      error: "No se pudieron obtener los servicios",
-      detail: error.message
-    });
+    return handleError(error, res, "No se pudieron obtener los servicios");
   }
 }
 
-/* Obtener un servicio por ID */
 export async function getServiceById(req, res) {
   try {
     const { sid } = req.params;
-
     const service = await servicesService.getServiceById(sid);
 
     if (service === null) {
@@ -40,35 +28,24 @@ export async function getServiceById(req, res) {
 
     return res.status(200).json(service);
   } catch (error) {
-    return res.status(500).json({
-      error: "No se pudo obtener el servicio",
-      detail: error.message
-    });
+    return handleError(error, res, "No se pudo obtener el servicio");
   }
 }
 
-/* Crear un servicio */
 export async function createService(req, res) {
   try {
     const service = await servicesService.createService(req.body);
 
     return res.status(201).json(service);
   } catch (error) {
-    return res.status(400).json({
-      error: error.message
-    });
+    return handleError(error, res, "No se pudo crear el servicio");
   }
 }
 
-/* Actualizar un servicio */
 export async function updateService(req, res) {
   try {
     const { sid } = req.params;
-
-    const service = await servicesService.updateService(
-      sid,
-      req.body
-    );
+    const service = await servicesService.updateService(sid, req.body);
 
     if (service === null) {
       return res.status(404).json({
@@ -78,17 +55,13 @@ export async function updateService(req, res) {
 
     return res.status(200).json(service);
   } catch (error) {
-    return res.status(400).json({
-      error: error.message
-    });
+    return handleError(error, res, "No se pudo actualizar el servicio");
   }
 }
 
-/* Eliminar un servicio */
 export async function deleteService(req, res) {
   try {
     const { sid } = req.params;
-
     const service = await servicesService.deleteService(sid);
 
     if (service === null) {
@@ -99,9 +72,26 @@ export async function deleteService(req, res) {
 
     return res.status(200).json(service);
   } catch (error) {
-    return res.status(500).json({
-      error: "No se pudo eliminar el servicio",
-      detail: error.message
+    return handleError(error, res, "No se pudo eliminar el servicio");
+  }
+}
+
+function handleError(error, res, fallbackMessage) {
+  if (error.statusCode === 400 || error.name === "ValidationError") {
+    return res.status(400).json({
+      error: error.message
     });
   }
+
+  if (error.statusCode === 404) {
+    return res.status(404).json({
+      error: error.message
+    });
+  }
+
+  console.error(fallbackMessage, error.message);
+
+  return res.status(500).json({
+    error: fallbackMessage
+  });
 }

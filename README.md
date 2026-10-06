@@ -1,19 +1,39 @@
-# Administrador de servicios y reservas — API REST
+# Administrador de servicios y reservas
 
-API desarrollada con Node.js, Express y FileSystem para gestionar servicios y reservas de un sistema de turnos.
+API REST desarrollada con Node.js, Express y Mongoose para gestionar servicios y reservas de un sistema de turnos.
 
-Esta quinta entrega incorpora las capas de services, repositories y DAO. Las responsabilidades de los managers anteriores se distribuyen entre esas capas y se elimina la carpeta `managers`.
+La aplicación utiliza MongoDB Atlas para persistir los datos y mantiene una arquitectura en capas:
 
-Se conservan los ocho endpoints de la entrega anterior y la persistencia en archivos JSON.
+**Routes → Controllers → Services → Repositories → DAO → MongoDB**
+
+## Alcance de esta entrega
+
+Esta entrega migra la persistencia desde archivos JSON hacia MongoDB Atlas con Mongoose, conservando las rutas de servicios y reservas.
+
+Los identificadores pasan de números a ObjectId. La API mantiene la propiedad `id` en sus respuestas y la devuelve como un string.
+
+También se mejora el manejo de errores de los controllers de servicios, diferenciando los errores de validación del cliente (`400`) de los errores internos (`500`), según la devolución de la entrega anterior.
+
+> **Aclaración sobre `messages`:** Por indicación del docente en clase, se omite la entidad `messages` debido a una inconsistencia en la consigna. Esta entrega implementa la migración a MongoDB Atlas con Mongoose de los recursos `services` y `bookings`.
 
 ## Tecnologías
 
-- Node.js
-- JavaScript con ECMAScript Modules (ESM)
-- Express
-- dotenv
-- FileSystem mediante `node:fs/promises`
-- Archivos JSON para persistencia
+- Node.js con módulos ESM.
+- Express.
+- MongoDB Atlas.
+- Mongoose.
+- dotenv.
+
+El proyecto se desarrolló y probó con Node.js 24.
+
+## Requisitos
+
+- Node.js y npm.
+- Git.
+- Un clúster de MongoDB Atlas.
+- Un usuario de base de datos con permisos de lectura y escritura sobre la base utilizada.
+- La dirección IP desde la que se ejecuta la aplicación autorizada en Atlas.
+- Postman u otro cliente HTTP para probar los endpoints.
 
 ## Instalación
 
@@ -21,6 +41,11 @@ Clonar el repositorio:
 
 ```bash
 git clone https://github.com/francodominici90-collab/administrador-servicios-node.git
+```
+
+Entrar a la carpeta:
+
+```bash
 cd administrador-servicios-node
 ```
 
@@ -30,165 +55,176 @@ Instalar las dependencias:
 npm install
 ```
 
+Crear un archivo `.env` en la raíz, tomando `.env.example` como referencia.
+
+En PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Completar las variables con los valores del entorno local.
+
 ## Variables de entorno
 
-Crear un archivo `.env` en la raíz del proyecto:
+| Variable | Descripción | Ejemplo |
+| --- | --- | --- |
+| `PORT` | Puerto del servidor HTTP | `8080` |
+| `NODE_ENV` | Entorno de ejecución | `development` |
+| `MONGO_URI` | URI de conexión a MongoDB Atlas | URI proporcionada por Atlas |
 
-```env
+Ejemplo de `.env`:
+
+```dotenv
 PORT=8080
 NODE_ENV=development
+MONGO_URI="mongodb+srv://USUARIO:CONTRASENA@HOST_DEL_CLUSTER/turnos_reservas?appName=Cluster0"
 ```
 
-Ambas variables son obligatorias. Si falta alguna o está vacía, la aplicación falla al iniciar con un mensaje descriptivo.
+Reemplazar `USUARIO`, `CONTRASENA` y `HOST_DEL_CLUSTER` con los datos correspondientes al clúster.
 
-La configuración comprueba que `PORT` sea un entero positivo. Para iniciar el servidor debe utilizarse un puerto válido y disponible.
+La contraseña pertenece al usuario de base de datos. No necesariamente coincide con la contraseña utilizada para ingresar al sitio de Atlas.
 
-El archivo `.env.example` contiene:
+Si las credenciales contienen caracteres reservados de una URI, deben codificarse. Por ejemplo, `@` dentro de la contraseña se representa como `%40`.
 
-```env
+El archivo `.env.example` contiene únicamente los nombres de las variables:
+
+```dotenv
 PORT=
 NODE_ENV=
+MONGO_URI=
 ```
 
-`.env` y `node_modules/` están excluidos mediante `.gitignore`.
+La configuración valida que las tres variables estén presentes y tengan contenido. También verifica que `PORT` sea un número entero entre `1` y `65535`.
+
+El archivo `.env` y la carpeta `node_modules` están excluidos mediante `.gitignore`.
 
 ## Ejecución
 
-Iniciar el servidor:
+Iniciar la aplicación:
 
 ```bash
 npm start
 ```
 
-Iniciar con reinicio automático ante cambios:
+Ejecutar en modo desarrollo, con reinicio al detectar cambios:
 
 ```bash
 npm run dev
 ```
 
-Con el puerto del ejemplo, la API está disponible en:
+La aplicación espera a que se establezca la conexión con MongoDB antes de iniciar el servidor HTTP.
+
+Si la conexión inicial falla, muestra el error en la terminal y finaliza el proceso.
+
+Con la configuración del ejemplo, la URL base es:
 
 ```text
 http://localhost:8080
 ```
 
-Para detener el servidor, presionar `Ctrl + C`.
+## Organización del proyecto
 
-## Arquitectura en capas
-
-El recorrido de las operaciones es:
-
-**Router → Controller → Service → Repository → DAO → archivo JSON**
-
-| Capa | Responsabilidad |
+| Ubicación | Contenido |
 | --- | --- |
-| Router | Define los endpoints y los conecta con las funciones del controller |
-| Controller | Lee los datos de la petición, llama al service y construye la respuesta HTTP |
-| Service | Valida los datos y aplica las reglas de negocio |
-| Repository | Ofrece métodos de acceso a datos y delega las operaciones al DAO |
-| DAO | Consulta y modifica los registros almacenados en archivos JSON |
+| `src/config/env.config.js` | Carga y validación de variables de entorno |
+| `src/config/db.config.js` | Conexión a MongoDB mediante Mongoose |
+| `src/models/service.model.js` | Esquema y modelo de servicios |
+| `src/models/booking.model.js` | Esquema y modelo de reservas |
+| `src/routes/services.router.js` | Rutas de servicios |
+| `src/routes/bookings.router.js` | Rutas de reservas |
+| `src/controllers/services.controller.js` | Recepción y respuesta HTTP de servicios |
+| `src/controllers/bookings.controller.js` | Recepción y respuesta HTTP de reservas |
+| `src/services/services.service.js` | Validaciones y reglas de servicios |
+| `src/services/bookings.service.js` | Validaciones y reglas de reservas |
+| `src/repositories/services.repository.js` | Acceso al DAO de servicios |
+| `src/repositories/bookings.repository.js` | Acceso al DAO de reservas |
+| `src/dao/services.dao.js` | Operaciones de persistencia de servicios |
+| `src/dao/bookings.dao.js` | Operaciones de persistencia de reservas |
+| `src/app.js` | Configuración de Express y montaje de routers |
+| `src/server.js` | Conexión a la base de datos y arranque del servidor |
 
-Los controllers utilizan `req.params`, `req.query` y `req.body`, y responden mediante `res.status().json()`.
+## Responsabilidades de las capas
 
-Los services, repositories y DAO no utilizan `req` ni `res`.
+### Routes
 
-El acceso a los archivos JSON se realiza exclusivamente en los DAO.
+Definen los endpoints y los vinculan con las funciones de los controllers.
 
-### Organización de archivos
+### Controllers
 
-| Archivo | Responsabilidad |
-| --- | --- |
-| `src/config/env.config.js` | Carga y valida las variables de entorno |
-| `src/routes/services.router.js` | Define las rutas de servicios |
-| `src/routes/bookings.router.js` | Define las rutas de reservas |
-| `src/controllers/services.controller.js` | Gestiona las peticiones y respuestas HTTP de servicios |
-| `src/controllers/bookings.controller.js` | Gestiona las peticiones y respuestas HTTP de reservas |
-| `src/services/services.service.js` | Valida servicios y procesa sus filtros |
-| `src/services/bookings.service.js` | Valida reservas y gestiona la incorporación de servicios |
-| `src/repositories/services.repository.js` | Delega el acceso a servicios en su DAO |
-| `src/repositories/bookings.repository.js` | Delega el acceso a reservas en su DAO |
-| `src/dao/services.dao.js` | Lee y escribe `services.json` |
-| `src/dao/bookings.dao.js` | Lee y escribe `bookings.json` |
-| `src/data/services.json` | Almacena los servicios |
-| `src/data/bookings.json` | Almacena las reservas |
-| `src/app.js` | Configura Express y monta los routers |
-| `src/server.js` | Inicia el servidor |
-| `package.json` | Define dependencias y scripts |
-| `package-lock.json` | Registra las versiones de las dependencias |
-| `.env.example` | Documenta las variables requeridas |
-| `.gitignore` | Excluye archivos que no deben versionarse |
-| `README.md` | Documenta la instalación, arquitectura y uso |
+Leen `req.params`, `req.query` y `req.body`, llaman a la capa service y construyen las respuestas HTTP.
 
-### Funciones por capa
+También traducen los errores a sus códigos de estado correspondientes.
+
+### Services
+
+Contienen las validaciones de entrada y las reglas de negocio.
+
+En reservas, esta capa comprueba que la reserva y el servicio existan antes de asociarlos. Si el servicio ya está agregado, incrementa su cantidad.
+
+No utiliza `req` ni `res` y no accede directamente a MongoDB.
+
+### Repositories
+
+Ofrecen métodos de acceso a datos y delegan las operaciones en los DAO.
+
+No contienen reglas de negocio.
+
+### DAO
+
+Ejecutan las consultas mediante los modelos de Mongoose.
+
+Seleccionan los campos que se persisten y transforman los resultados al formato utilizado por las capas superiores.
+
+Los ObjectId se convierten a strings al devolver los datos. Las respuestas conservan la propiedad `id` y no exponen los campos internos `_id` y `__v`.
+
+### Models
+
+Definen los campos, tipos y restricciones de los documentos.
+
+Las validaciones de los modelos complementan las validaciones de entrada de la capa service.
+
+## Métodos por recurso
 
 | Recurso | Controller y service | Repository y DAO |
 | --- | --- | --- |
 | Servicios | `getServices`, `getServiceById`, `createService`, `updateService`, `deleteService` | `getAll`, `getById`, `create`, `update`, `delete` |
 | Reservas | `createBooking`, `getBookingById`, `addServiceToBooking` | `create`, `getById`, `update` |
 
-Las funciones de acceso a datos son asíncronas. Los controllers esperan sus resultados mediante `await`.
+En los módulos correspondientes, la función de eliminación se declara como `deleteById` y se exporta con el alias `delete`, porque `delete` es una palabra reservada de JavaScript.
 
-### Validaciones centralizadas
+## Persistencia e identificadores
 
-Las validaciones se concentran en los services.
+Los datos se almacenan en las colecciones `services` y `bookings` de MongoDB.
 
-En particular, `bookings.service.js` comprueba que existan la reserva y el servicio antes de asociarlos. El controller de reservas ya no repite esas consultas.
+Mongoose genera automáticamente el `_id` de cada documento. El cliente no necesita enviar un identificador al crear un servicio o una reserva.
 
-Si una operación devuelve `null`, el controller puede convertir ese resultado en una respuesta `404`. Esto interpreta el resultado de la operación sin realizar otra consulta.
+Los DAO excluyen los identificadores de los datos utilizados para crear o actualizar documentos.
 
-Los DAO comprueban que el contenido leído del archivo sea un array. Esta comprobación corresponde al formato del almacenamiento, no a una regla de negocio.
+En las reservas, cada servicio se almacena de esta forma:
 
-### Regla de cantidades en reservas
-
-La lógica para agregar servicios se encuentra en `bookings.service.js`:
-
-- Si el servicio todavía no está asociado, se agrega con `quantity: 1`.
-- Si ya está asociado, se incrementa su cantidad.
-- El array conserva un único elemento por servicio.
-
-El repository y el DAO reciben los datos actualizados para guardarlos; no calculan las cantidades.
-
-### Generación y conservación del ID
-
-Los DAO generan los IDs numéricos tomando el mayor ID existente en el archivo y sumando uno.
-
-Los services de creación seleccionan los campos permitidos y no trasladan un ID proporcionado por el cliente.
-
-En la actualización de servicios, el service excluye el ID del body. El DAO también conserva el identificador del registro almacenado.
-
-### Nombre interno deleteById
-
-La consigna requiere que el repository y el DAO de servicios expongan una función llamada `delete`.
-
-Como `delete` es una palabra reservada de JavaScript, la función se declara internamente como `deleteById` y se exporta con un alias:
-
-```javascript
-export { deleteById as delete };
+```js
+{
+  service: ObjectId,
+  quantity: Number
+}
 ```
 
-Por eso puede utilizarse de esta manera:
+No se guarda una copia completa del servicio dentro de la reserva.
 
-```javascript
-servicesDao.delete(id);
-```
+Los elementos del array de servicios no tienen un `_id` adicional. La reserva sí tiene su propio identificador.
 
-No son dos operaciones diferentes: es la misma función con un nombre interno y otro nombre al exportarla.
+Los registros de los antiguos archivos JSON no se importan automáticamente. En una base nueva, los recursos deben crearse mediante la API.
 
-### Función del repository
-
-Actualmente los repositories delegan sus métodos directamente a los DAO.
-
-Esta separación ofrece un punto de acceso a datos para los services y prepara el proyecto para reemplazar la persistencia en archivos por otra implementación.
-
-Una futura migración a MongoDB deberá conservar los contratos de estas operaciones y considerar diferencias como el formato de los IDs.
+Los archivos JSON dejaron de utilizarse y fueron retirados de esta versión. Las versiones anteriores permanecen disponibles en el historial de Git.
 
 ## Recurso services
 
-Ejemplo de servicio:
+Ejemplo de respuesta:
 
 ```json
 {
-  "id": 1,
+  "id": "6ac4f4ba99fb98cc2986b4d1",
   "name": "Consulta general",
   "description": "Consulta inicial para evaluar al cliente",
   "duration": 30,
@@ -198,88 +234,166 @@ Ejemplo de servicio:
 }
 ```
 
-| Campo | Validación |
-| --- | --- |
-| `id` | Generado internamente; no modificable por el cliente |
-| `name` | Texto obligatorio y no vacío |
-| `description` | Texto obligatorio y no vacío |
-| `duration` | Número finito mayor que cero |
-| `price` | Número finito mayor o igual que cero |
-| `category` | Texto obligatorio y no vacío |
-| `available` | Booleano obligatorio |
+### Validaciones
 
-El valor `false` es válido para `available`, y `0` es válido para `price`.
+- `name`, `description` y `category`: strings no vacíos.
+- `duration`: número finito mayor que cero, expresado en minutos.
+- `price`: número finito mayor o igual que cero.
+- `available`: booleano; tanto `true` como `false` son válidos.
+- Todos los campos anteriores son obligatorios al crear un servicio.
+- Las actualizaciones pueden ser parciales; se valida el resultado combinado con los datos existentes.
+- El identificador no se puede modificar.
 
-Al guardar se eliminan los espacios de los extremos de los campos de texto.
+### Endpoints
 
-## Endpoints de servicios
-
-| Método | Ruta | Comportamiento | Estados habituales |
-| --- | --- | --- | --- |
-| GET | `/api/services` | Lista y filtra servicios | 200, 400 |
-| GET | `/api/services/:sid` | Consulta un servicio | 200, 404 |
-| POST | `/api/services` | Crea un servicio | 201, 400 |
-| PUT | `/api/services/:sid` | Actualiza un servicio | 200, 400, 404 |
-| DELETE | `/api/services/:sid` | Elimina un servicio | 200, 404 |
+| Método | Ruta | Comportamiento |
+| --- | --- | --- |
+| GET | `/api/services` | Devuelve todos los servicios; permite filtros |
+| GET | `/api/services/:sid` | Devuelve un servicio o responde `404` |
+| POST | `/api/services` | Crea un servicio y responde `201` |
+| PUT | `/api/services/:sid` | Actualiza un servicio o responde `404` |
+| DELETE | `/api/services/:sid` | Elimina y devuelve el servicio, o responde `404` |
 
 ### Filtros
 
-`GET /api/services` admite:
-
-- `category`: coincidencia de categoría sin distinguir mayúsculas y minúsculas.
-- `available`: admite `true` o `false`, sin distinguir mayúsculas y minúsculas.
-
-Pueden combinarse:
+Ejemplos:
 
 ```text
-http://localhost:8080/api/services?category=Consultas&available=true
+/api/services?category=Consultas
+/api/services?available=true
+/api/services?category=Consultas&available=false
 ```
 
-Un valor inválido para `available` produce una respuesta `400`.
+Los filtros pueden combinarse.
 
-Si no hay coincidencias, devuelve `200` y un array vacío.
+La categoría se compara sin distinguir mayúsculas y minúsculas. El filtro `available` acepta `true` o `false`, también sin distinguir mayúsculas y minúsculas.
 
-### Creación
+Un valor de disponibilidad distinto responde `400`.
 
-Ejemplo de body para `POST /api/services`:
+Si no hay coincidencias, se devuelve `200` con un array vacío.
+
+### Crear un servicio
+
+**POST** `/api/services`
 
 ```json
 {
-  "name": "Masaje relajante",
-  "description": "Masaje de una hora",
-  "duration": 60,
-  "price": 20000,
-  "category": "Salud",
+  "name": "Consulta general",
+  "description": "Consulta inicial para evaluar al cliente",
+  "duration": 30,
+  "price": 15000,
+  "category": "Consultas",
   "available": true
 }
 ```
 
-Todos estos campos son obligatorios. No se debe enviar `id`.
+Respuesta esperada: `201 Created` con el servicio y su `id`.
 
-La respuesta exitosa tiene estado `201` y contiene el servicio creado.
+### Actualizar un servicio
 
-### Actualización
-
-Ejemplo de body para `PUT /api/services/:sid`:
+**PUT** `/api/services/:sid`
 
 ```json
 {
-  "price": 23000,
+  "price": 18000,
   "available": false
 }
 ```
 
-Se actualizan los campos enviados y se conservan los restantes. Los valores se validan antes de guardar.
+Respuesta esperada: `200 OK` con los datos actualizados, conservando el identificador y los campos que no se modificaron.
 
-Si el body incluye `id`, se ignora y se mantiene el ID original.
+## Recurso bookings
 
-La actualización exige un objeto; no acepta un array como body.
+Ejemplo de respuesta:
 
-### Consulta y eliminación
+```json
+{
+  "id": "6ac5001bfc83586c168833e3",
+  "clientName": "Prueba MongoDB",
+  "clientEmail": "mongo@example.com",
+  "date": "2026-10-10",
+  "time": "16:00",
+  "status": "pending",
+  "services": [
+    {
+      "service": "6ac4f4ba99fb98cc2986b4d1",
+      "quantity": 2
+    }
+  ]
+}
+```
 
-Si el servicio existe, GET devuelve el servicio y DELETE devuelve el registro eliminado, ambos con estado `200`.
+Los identificadores de los ejemplos son ilustrativos. Para probar la API, utilizar los devueltos por la propia base de datos.
 
-Si no existe, responden con estado `404`:
+### Validaciones y reglas
+
+- `clientName`: string no vacío.
+- `clientEmail`: string con formato de correo electrónico.
+- `date`: fecha válida con formato `YYYY-MM-DD`.
+- `time`: hora con formato `HH:mm`, de `00:00` a `23:59`.
+- `status`: string no vacío; si se omite, se utiliza `pending`.
+- `services`: puede omitirse o enviarse como un array vacío al crear la reserva.
+- Los servicios se agregan mediante el endpoint de asociación.
+- La reserva y el servicio deben existir.
+- Si el servicio ya está asociado, se incrementa `quantity` sin duplicar la entrada.
+
+La fecha y la hora se conservan como strings para mantener los formatos de la API anterior.
+
+### Endpoints
+
+| Método | Ruta | Comportamiento |
+| --- | --- | --- |
+| POST | `/api/bookings` | Crea una reserva y responde `201` |
+| GET | `/api/bookings/:bid` | Devuelve una reserva o responde `404` |
+| POST | `/api/bookings/:bid/services/:sid` | Agrega un servicio o incrementa su cantidad; responde `200` |
+
+El endpoint de asociación responde `404` si la reserva o el servicio no existen.
+
+### Crear una reserva
+
+**POST** `/api/bookings`
+
+```json
+{
+  "clientName": "Cliente de prueba",
+  "clientEmail": "cliente@example.com",
+  "date": "2026-10-10",
+  "time": "16:00",
+  "status": "pending",
+  "services": []
+}
+```
+
+Respuesta esperada: `201 Created`.
+
+### Agregar un servicio
+
+**POST** `/api/bookings/:bid/services/:sid`
+
+Esta petición no requiere body.
+
+En la primera asociación se agrega:
+
+```json
+{
+  "service": "6ac4f4ba99fb98cc2986b4d1",
+  "quantity": 1
+}
+```
+
+Si se repite la petición, la misma entrada pasa a tener `quantity: 2`.
+
+## Respuestas y manejo de errores
+
+| Código | Significado |
+| --- | --- |
+| `200` | Consulta, actualización, eliminación o asociación exitosa |
+| `201` | Recurso creado |
+| `400` | Datos de entrada o filtros inválidos |
+| `404` | Recurso no encontrado |
+| `500` | Error interno inesperado |
+
+Ejemplo de recurso inexistente:
 
 ```json
 {
@@ -287,351 +401,68 @@ Si no existe, responden con estado `404`:
 }
 ```
 
-## Recurso bookings
+En los controllers de servicios, los errores de validación identificados por la capa service y los errores de validación de Mongoose responden `400`.
 
-Ejemplo de reserva:
+Los errores inesperados responden `500`. El detalle se registra en la terminal y el cliente recibe un mensaje general.
 
-```json
-{
-  "id": 1,
-  "clientName": "Cliente de prueba",
-  "clientEmail": "cliente@example.com",
-  "date": "2026-10-05",
-  "time": "15:30",
-  "status": "pending",
-  "services": [
-    {
-      "service": 1,
-      "quantity": 2
-    }
-  ]
-}
-```
-
-| Campo | Validación o comportamiento |
-| --- | --- |
-| `id` | Generado internamente |
-| `clientName` | Texto obligatorio y no vacío |
-| `clientEmail` | Texto obligatorio con formato de correo |
-| `date` | Fecha existente con formato `YYYY-MM-DD` |
-| `time` | Hora con formato `HH:mm`, entre `00:00` y `23:59` |
-| `status` | Texto no vacío; por defecto `pending` |
-| `services` | Array de referencias y cantidades |
-
-Cada elemento de `services` contiene únicamente:
+Por ejemplo:
 
 ```json
 {
-  "service": 1,
-  "quantity": 1
+  "error": "No se pudo crear el servicio"
 }
 ```
 
-## Endpoints de reservas
-
-| Método | Ruta | Comportamiento | Estados habituales |
-| --- | --- | --- | --- |
-| POST | `/api/bookings` | Crea una reserva | 201, 400 |
-| GET | `/api/bookings/:bid` | Consulta una reserva | 200, 404 |
-| POST | `/api/bookings/:bid/services/:sid` | Agrega un servicio o aumenta su cantidad | 200, 404 |
-
-### Creación
-
-Ejemplo de body para `POST /api/bookings`:
-
-```json
-{
-  "clientName": "Cliente de prueba",
-  "clientEmail": "cliente@example.com",
-  "date": "2026-10-05",
-  "time": "15:30",
-  "services": []
-}
-```
-
-Si se omite `status`, se guarda como `pending`.
-
-Las reservas se crean sin servicios. El campo `services` puede omitirse o enviarse como un array vacío.
-
-No se debe enviar el ID.
-
-La respuesta exitosa tiene estado `201` y contiene la reserva creada.
-
-### Consulta
-
-`GET /api/bookings/:bid` responde con estado `200` y la reserva.
-
-Si no existe, responde con estado `404`:
-
-```json
-{
-  "error": "Reserva no encontrada"
-}
-```
-
-### Incorporación de servicios
-
-`POST /api/bookings/:bid/services/:sid` no necesita body.
-
-El service comprueba primero la existencia de la reserva y después la del servicio.
-
-Si falta alguno, responde `404` sin guardar cambios. Si ambos existen, agrega el servicio o incrementa su cantidad y responde `200` con la reserva actualizada.
-
-## Manejo de errores
-
-Los controllers gestionan las respuestas HTTP y conservan el comportamiento de la entrega anterior:
-
-- `400`: datos o filtros inválidos. En POST y PUT de servicios también se utiliza para los errores de persistencia.
-- `404`: servicio o reserva inexistente.
-- `500`: errores internos en consultas y eliminación de servicios, y en operaciones de reservas.
-
-Las respuestas de error contienen un mensaje descriptivo.
+Los identificadores con formato incompatible con ObjectId devuelven `null` desde los DAO y terminan respondiendo `404` mediante las capas superiores.
 
 ## Pruebas manuales con Postman
 
-Iniciar el servidor antes de enviar peticiones.
+Seleccionar el método HTTP en el desplegable de Postman. En el campo de URL, escribir únicamente la dirección, sin anteponer `GET`, `POST` u otro método.
 
-En Postman, seleccionar el método HTTP en su selector e ingresar únicamente la URL en el campo de dirección.
+Para peticiones con datos, utilizar **Body → raw → JSON**.
 
-Para enviar un body:
+### Comprobaciones realizadas durante la migración
 
-1. Abrir la pestaña **Body**.
-2. Seleccionar **raw**.
-3. Elegir **JSON**.
-4. Ingresar el contenido.
-5. Presionar **Send**.
+1. Consultar servicios en una colección vacía: `200` con `[]`.
+2. Crear un servicio: `201` con un identificador generado.
+3. Consultar el listado y buscar el servicio por ID: `200`.
+4. Actualizar precio y disponibilidad: `200`, conservando el ID.
+5. Consultar nuevamente y verificar los cambios guardados.
+6. Crear una reserva vacía: `201`.
+7. Agregar un servicio a la reserva: `200` y `quantity: 1`.
+8. Repetir la asociación: `200` y `quantity: 2`, sin duplicar la entrada.
+9. Reiniciar el servidor y consultar la reserva: los datos se conservan.
+10. Consultar un servicio inexistente: `404`.
+11. Intentar asociar un servicio inexistente: `404`.
+12. Enviar un servicio incompleto: `400`.
+13. Crear un servicio temporal y eliminarlo: `200`.
+14. Consultar o eliminar nuevamente el servicio eliminado: `404`.
 
-Para peticiones sin body, seleccionar **none**.
+### Prueba del manejo de errores internos
 
-Estas pruebas modifican los archivos JSON. Utilizar datos ficticios y anotar los IDs devueltos.
+Durante el desarrollo se introdujo temporalmente una excepción dentro del controller de creación de servicios para verificar la respuesta `500`.
 
-### 1. Consultar servicios
+Se comprobó que:
 
-Método: **GET**
+- El cliente recibió un mensaje general.
+- El detalle del error apareció en la terminal.
+- Después de retirar la excepción y reiniciar, el body incompleto volvió a responder `400`.
 
-```text
-http://localhost:8080/api/services
-```
+La excepción temporal no forma parte del código final.
 
-Esperado: `200` y el array de servicios.
+Esta prueba comprueba el manejo de una excepción inesperada en el controller; no simula una interrupción real de Atlas.
 
-Consultar el servicio original:
+Las pruebas documentadas son manuales. El proyecto no incluye actualmente una suite automatizada ni un script `npm test`.
 
-```text
-http://localhost:8080/api/services/1
-```
+## Alcance y limitaciones actuales
 
-Esperado: `200` si se conservan los datos de ejemplo.
-
-Consultar un ID inexistente:
-
-```text
-http://localhost:8080/api/services/999
-```
-
-Esperado: `404`, siempre que ese ID no exista.
-
-### 2. Comprobar un filtro inválido
-
-Método: **GET**
-
-```text
-http://localhost:8080/api/services?available=hola
-```
-
-Esperado: `400`, indicando que `available` debe ser `true` o `false`.
-
-### 3. Crear un servicio temporal
-
-Método: **POST**
-
-```text
-http://localhost:8080/api/services
-```
-
-Body:
-
-```json
-{
-  "name": "Prueba DAO",
-  "description": "Servicio temporal para probar la arquitectura",
-  "duration": 30,
-  "price": 10000,
-  "category": "Pruebas",
-  "available": true
-}
-```
-
-Esperado: `201`. Anotar el ID generado como `ID_SERVICIO`.
-
-En las siguientes URLs, reemplazar `ID_SERVICIO` por ese número.
-
-### 4. Actualizar y comprobar la protección del ID
-
-Método: **PUT**
-
-```text
-http://localhost:8080/api/services/ID_SERVICIO
-```
-
-Body:
-
-```json
-{
-  "id": 999999,
-  "price": 12000,
-  "available": false
-}
-```
-
-Esperado: `200`, precio `12000`, disponibilidad `false` y el ID original conservado.
-
-### 5. Rechazar una actualización inválida
-
-Método: **PUT**, en la misma URL.
-
-Body:
-
-```json
-{
-  "price": -1
-}
-```
-
-Esperado: `400`.
-
-Consultar después el servicio mediante **GET**, con **Body → none**. El precio debe seguir siendo `12000`.
-
-### 6. Eliminar el servicio temporal
-
-Método: **DELETE**, con **Body → none**.
-
-```text
-http://localhost:8080/api/services/ID_SERVICIO
-```
-
-Esperado: `200`.
-
-Consultar la misma URL mediante **GET**. Debe responder `404`.
-
-### 7. Crear una reserva
-
-Método: **POST**
-
-```text
-http://localhost:8080/api/bookings
-```
-
-Body:
-
-```json
-{
-  "clientName": "Prueba DAO",
-  "clientEmail": "dao@example.com",
-  "date": "2026-10-05",
-  "time": "16:00",
-  "services": []
-}
-```
-
-Esperado: `201`, estado `pending` y array de servicios vacío.
-
-Anotar el ID generado y utilizarlo en lugar de `ID_RESERVA`.
-
-### 8. Agregar dos veces un servicio
-
-Método: **POST**, con **Body → none**.
-
-```text
-http://localhost:8080/api/bookings/ID_RESERVA/services/1
-```
-
-Este ejemplo utiliza el servicio original con ID `1`. Si no existe, utilizar otro servicio existente.
-
-Primera petición: `200` y `quantity: 1`.
-
-Repetir la petición: `200` y `quantity: 2`, conservando un único elemento para ese servicio.
-
-### 9. Comprobar recursos inexistentes
-
-Método: **POST**, con **Body → none**.
-
-Servicio inexistente:
-
-```text
-http://localhost:8080/api/bookings/ID_RESERVA/services/999
-```
-
-Esperado: `404` y `"Servicio no encontrado"`.
-
-Reserva inexistente:
-
-```text
-http://localhost:8080/api/bookings/999/services/1
-```
-
-Esperado: `404` y `"Reserva no encontrada"`.
-
-Utilizar IDs que realmente no existan en los archivos.
-
-### 10. Rechazar una reserva incompleta
-
-Método: **POST**
-
-```text
-http://localhost:8080/api/bookings
-```
-
-Body:
-
-```json
-{
-  "clientName": "Prueba incompleta"
-}
-```
-
-Esperado: `400`, indicando que `clientEmail` es obligatorio.
-
-### 11. Comprobar persistencia
-
-Detener el servidor con `Ctrl + C` y volver a iniciarlo:
-
-```bash
-npm start
-```
-
-En Postman, seleccionar **GET** y **Body → none**:
-
-```text
-http://localhost:8080/api/bookings/ID_RESERVA
-```
-
-Esperado: `200` y el servicio agregado con `quantity: 2`.
-
-Esto comprueba que la reserva se conserva después del reinicio.
-
-### Resultado de la verificación
-
-Las pruebas anteriores se realizaron manualmente durante esta entrega.
-
-También se comprobó que no quedaran referencias a los managers anteriores y que el servidor continuara funcionando después de eliminarlos.
-
-Al finalizar se retiraron los datos temporales de las pruebas, conservando los datos de ejemplo del repositorio.
-
-Actualmente no se incluye una suite de pruebas automatizadas ni un script `npm test`.
-
-## Alcance y limitaciones
-
-Esta entrega incorpora la arquitectura de cinco capas utilizando FileSystem.
-
-- No se agregan endpoints nuevos.
-- No se utiliza todavía MongoDB ni Mongoose.
-- No se incluyen vistas ni WebSockets.
-- No se comprueba la disponibilidad de horarios ni se evitan turnos superpuestos.
-- Para asociar un servicio se valida su existencia, pero no su campo `available`.
-- No hay endpoints de edición o eliminación de reservas.
-- Eliminar un servicio no elimina sus referencias en reservas existentes.
-- Las operaciones sobre JSON no implementan bloqueo ni transacciones; las escrituras simultáneas pueden sobrescribir cambios.
+- No se comprueba la superposición de turnos.
+- La asociación comprueba que el servicio exista, pero no exige que `available` sea `true`.
+- Eliminar un servicio no elimina sus referencias de reservas existentes.
+- No se incluyen endpoints de edición o eliminación de reservas.
+- Las respuestas de reservas contienen referencias a servicios; no utilizan `populate`.
+- La actualización de cantidades utiliza una lectura seguida de una escritura. No se implementó control de concurrencia para asociaciones simultáneas.
+- No se incorporan autenticación, vistas, WebSockets ni validación con Zod en esta entrega.
 
 ## Autor
 

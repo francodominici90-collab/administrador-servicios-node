@@ -1,85 +1,81 @@
-import { readFile, writeFile } from "node:fs/promises";
+import mongoose from "mongoose";
+import Booking from "../models/booking.model.js";
 
-const bookingsFile = new URL(
-  "../data/bookings.json",
-  import.meta.url
-);
-
-/* Guardar una reserva con ID generado */
 export async function create(bookingData) {
-  const bookings = await readAll();
+  const booking = await Booking.create(toPersistenceData(bookingData));
 
-  const lastId = bookings.reduce((highestId, booking) => {
-    return Math.max(highestId, booking.id);
-  }, 0);
-
-  const newBooking = {
-    ...bookingData,
-    id: lastId + 1
-  };
-
-  bookings.push(newBooking);
-
-  await saveAll(bookings);
-
-  return newBooking;
+  return toBooking(booking);
 }
 
-/* Buscar una reserva por ID */
 export async function getById(id) {
-  const bookings = await readAll();
-
-  return bookings.find((booking) => {
-    return booking.id === Number(id);
-  }) ?? null;
-}
-
-/* Actualizar un registro existente */
-export async function update(id, updatedData) {
-  const bookings = await readAll();
-
-  const bookingIndex = bookings.findIndex((booking) => {
-    return booking.id === Number(id);
-  });
-
-  if (bookingIndex === -1) {
+  if (!mongoose.isObjectIdOrHexString(id)) {
     return null;
   }
 
-  const updatedBooking = {
-    ...bookings[bookingIndex],
-    ...updatedData,
-    id: bookings[bookingIndex].id
-  };
+  const booking = await Booking.findById(id).lean();
 
-  bookings[bookingIndex] = updatedBooking;
-
-  await saveAll(bookings);
-
-  return updatedBooking;
+  return toBooking(booking);
 }
 
-/* Leer las reservas del archivo */
-async function readAll() {
-  const content = await readFile(bookingsFile, "utf-8");
-  const bookings = JSON.parse(content);
-
-  if (!Array.isArray(bookings)) {
-    throw new Error(
-      "El archivo bookings.json debe contener un array"
-    );
+export async function update(id, updatedData) {
+  if (!mongoose.isObjectIdOrHexString(id)) {
+    return null;
   }
 
-  return bookings;
+  const booking = await Booking.findByIdAndUpdate(
+    id,
+    { $set: toPersistenceData(updatedData) },
+    {
+      returnDocument: "after",
+      runValidators: true
+    }
+  ).lean();
+
+  return toBooking(booking);
 }
 
-/* Escribir el array completo en el archivo */
-async function saveAll(bookings) {
-  const content = JSON.stringify(bookings, null, 2);
+function toPersistenceData(data) {
+  const fields = [
+    "clientName",
+    "clientEmail",
+    "date",
+    "time",
+    "status"
+  ];
 
-  await writeFile(
-    bookingsFile,
-    `${content}\n`,
-    "utf-8"
-  );
+  const result = {};
+
+  for (const field of fields) {
+    if (Object.hasOwn(data, field)) {
+      result[field] = data[field];
+    }
+  }
+
+  if (Object.hasOwn(data, "services")) {
+    result.services = data.services.map((item) => ({
+      service: item.service,
+      quantity: item.quantity
+    }));
+  }
+
+  return result;
+}
+
+function toBooking(document) {
+  if (!document) {
+    return null;
+  }
+
+  return {
+    id: document._id.toString(),
+    clientName: document.clientName,
+    clientEmail: document.clientEmail,
+    date: document.date,
+    time: document.time,
+    status: document.status,
+    services: document.services.map((item) => ({
+      service: item.service.toString(),
+      quantity: item.quantity
+    }))
+  };
 }
