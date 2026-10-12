@@ -1,0 +1,39 @@
+<section data-services-view="available">
+  <h1>{{title}}</h1>
+
+  <p>
+    Servicios habilitados actualmente.
+    Este listado no representa horarios libres de turnos.
+  </p>
+
+  <p class="summary">
+    Servicios disponibles:
+    <strong id="services-count">{{services.length}}</strong>
+  </p>
+
+  <div id="services-list" class="services-grid">
+    {{#each services}}
+      <article class="service-card" data-service-id="{{id}}">
+        <h2>{{name}}</h2>
+        <p>{{description}}</p>
+
+        <dl>
+          <dt>Duración</dt>
+          <dd>{{duration}} minutos</dd>
+
+          <dt>Precio</dt>
+          <dd>$ {{price}}</dd>
+
+          <dt>Categoría</dt>
+          <dd>{{category}}</dd>
+        </dl>
+
+        <span class="badge badge-available">Disponible</span>
+      </article>
+    {{else}}
+      <p class="empty-state">
+        No hay servicios disponibles en este momento.
+      </p>
+    {{/each}}
+  </div>
+</section>

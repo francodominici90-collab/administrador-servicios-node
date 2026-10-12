@@ -1,0 +1,61 @@
+<section data-messages-view>
+  <h1>{{title}}</h1>
+
+  <p>
+    Los mensajes se guardan y se comparten con quienes tienen abierto el chat.
+  </p>
+
+  <p>
+    El nombre ingresado identifica al autor del mensaje,
+    pero no corresponde a una cuenta autenticada.
+  </p>
+
+  <form id="message-form">
+    <div>
+      <label for="message-author">Tu nombre</label>
+      <input
+        id="message-author"
+        name="author"
+        type="text"
+        maxlength="100"
+        autocomplete="name"
+        required
+      >
+    </div>
+
+    <div>
+      <label for="message-text">Mensaje</label>
+      <textarea
+        id="message-text"
+        name="text"
+        rows="3"
+        maxlength="1000"
+        required
+      ></textarea>
+    </div>
+
+    <button id="message-submit" type="submit" disabled>
+      Enviar mensaje
+    </button>
+  </form>
+
+  <p id="chat-status" role="status">
+    Esperando conexión con el servidor…
+  </p>
+
+  <h2>Mensajes</h2>
+
+  <div id="messages-list" aria-live="polite">
+    {{#each messages}}
+      <article class="service-card" data-message-id="{{id}}">
+        <h3>{{author}}</h3>
+        <p class="message-text">{{text}}</p>
+        <time datetime="{{createdAt}}">{{createdAt}}</time>
+      </article>
+    {{else}}
+      <p id="messages-empty" class="empty-state">
+        Todavía no hay mensajes. Podés escribir el primero.
+      </p>
+    {{/each}}
+  </div>
+</section>

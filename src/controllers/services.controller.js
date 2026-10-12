@@ -36,6 +36,8 @@ export async function createService(req, res) {
   try {
     const service = await servicesService.createService(req.body);
 
+    req.app.get("io")?.emit("services:changed");
+
     return res.status(201).json(service);
   } catch (error) {
     return handleError(error, res, "No se pudo crear el servicio");
@@ -53,6 +55,8 @@ export async function updateService(req, res) {
       });
     }
 
+    req.app.get("io")?.emit("services:changed");
+
     return res.status(200).json(service);
   } catch (error) {
     return handleError(error, res, "No se pudo actualizar el servicio");
@@ -69,6 +73,8 @@ export async function deleteService(req, res) {
         error: "Servicio no encontrado"
       });
     }
+
+    req.app.get("io")?.emit("services:changed");
 
     return res.status(200).json(service);
   } catch (error) {
