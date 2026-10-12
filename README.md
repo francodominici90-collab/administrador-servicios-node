@@ -407,7 +407,7 @@ La carga inicial sigue siendo renderizada por Handlebars; JavaScript realiza las
 
 El chat se incorporó como una ampliación voluntaria.
 
-En la entrega anterior, el docente indicó que la entidad `messages` podía omitirse debido a una inconsistencia en la consigna. En esta etapa se agregó para practicar persistencia de mensajes y comunicación en tiempo real.
+En la entrega anterior, el docente indicó que la entidad messages podía omitirse debido a una inconsistencia en la consigna. En esta etapa se agregó para practicar persistencia de mensajes y comunicación en tiempo real, aplicando lo visto en la clase del 28 de septiembre del módulo 6.
 
 Cada mensaje contiene:
 
