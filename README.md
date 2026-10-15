@@ -437,7 +437,7 @@ Cambiar `available` actualiza tanto el estado mostrado en la vista general como 
 
 ## Mensajes persistentes y Socket.IO
 
-En la entrega anterior, el docente indicó que la entidad `messages` podía omitirse debido a una inconsistencia en la consigna. En esta etapa se agregó para practicar persistencia de mensajes y comunicación en tiempo real, aplicando lo visto en la clase del 28 de septiembre del módulo 6.
+La entidad `messages` se incorporó en la entrega 7 para practicar persistencia de mensajes en MongoDB y comunicación en tiempo real con Socket.IO, aplicando lo visto en la clase del 28 de septiembre del módulo 6. En la entrega 6, el docente había autorizado omitirla debido a una inconsistencia en la consigna.
 
 Cada mensaje contiene:
 
