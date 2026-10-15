@@ -1,41 +1,26 @@
 # Administrador de servicios y reservas
 
-Proyecto desarrollado durante el curso de Backend para gestionar servicios y reservas mediante una API REST.
+Proyecto desarrollado con Node.js, Express y MongoDB Atlas para gestionar servicios y reservas.
 
-Utiliza Node.js, Express y MongoDB Atlas con Mongoose. Incorpora vistas renderizadas con Handlebars y actualizaciones en tiempo real mediante Socket.IO.
-
-## Funcionalidades
-
-- Crear, consultar, actualizar y eliminar servicios.
-- Filtrar servicios por categoría y disponibilidad.
-- Crear reservas y consultar una reserva por su identificador.
-- Agregar servicios a una reserva.
-- Incrementar la cantidad cuando se agrega nuevamente el mismo servicio.
-- Mostrar servicios y disponibilidad mediante vistas Handlebars.
-- Actualizar las vistas cuando se crea, modifica o elimina un servicio.
-- Enviar mensajes de chat en tiempo real y guardarlos en MongoDB.
+Incluye una API REST, vistas con Handlebars y actualizaciones en tiempo real mediante Socket.IO. La persistencia se realiza con Mongoose y la validación de las peticiones utiliza Zod.
 
 ## Tecnologías
 
-- Node.js con módulos ESM.
+- Node.js con ESM (`import` y `export`).
 - Express.
-- MongoDB Atlas.
-- Mongoose.
-- dotenv.
-- express-handlebars.
+- MongoDB Atlas y Mongoose.
+- Zod.
+- Handlebars.
 - Socket.IO.
-- HTML, CSS y JavaScript del navegador.
+- dotenv.
 
 ## Requisitos
 
 - Node.js 24.
 - npm.
 - Git.
-- Un clúster de MongoDB Atlas.
-- Un usuario de base de datos con acceso al clúster.
-- La dirección IP de conexión habilitada en Atlas.
-
-La cuenta de acceso a la plataforma Atlas y el usuario de la base de datos son credenciales diferentes.
+- Una base de datos en MongoDB Atlas.
+- Un usuario de base de datos y acceso de red configurados en Atlas.
 
 ## Instalación
 
@@ -43,11 +28,6 @@ Clonar el repositorio:
 
 ```bash
 git clone https://github.com/francodominici90-collab/administrador-servicios-node.git
-```
-
-Ingresar a la carpeta:
-
-```bash
 cd administrador-servicios-node
 ```
 
@@ -71,17 +51,11 @@ En Linux o macOS:
 cp .env.example .env
 ```
 
-Completar las variables antes de iniciar la aplicación.
+Completar las variables con la configuración local.
 
 ## Variables de entorno
 
-| Variable | Descripción |
-|---|---|
-| `PORT` | Puerto del servidor HTTP. |
-| `NODE_ENV` | Entorno de ejecución. |
-| `MONGO_URI` | URI de conexión a MongoDB Atlas. |
-
-Ejemplo de configuración local:
+Ejemplo de configuración:
 
 ```env
 PORT=8080
@@ -89,191 +63,220 @@ NODE_ENV=development
 MONGO_URI=mongodb+srv://USUARIO:CONTRASENA@HOST_DEL_CLUSTER/turnos_reservas?retryWrites=true&w=majority
 ```
 
-La URI es ilustrativa: se debe utilizar la cadena proporcionada por Atlas, con el usuario, contraseña y nombre de base de datos correspondientes.
+La URI es un ejemplo: debe reemplazarse por la conexión correspondiente al proyecto de Atlas.
 
-Los caracteres especiales de las credenciales deben codificarse correctamente para utilizarlos en una URI.
+| Variable | Descripción |
+| --- | --- |
+| `PORT` | Puerto del servidor. |
+| `NODE_ENV` | Entorno de ejecución. |
+| `MONGO_URI` | URI de conexión a MongoDB Atlas. |
 
-El archivo `.env.example` contiene las variables sin valores:
+La aplicación valida las variables requeridas al iniciar. El puerto debe ser un número entero entre 1 y 65535.
 
-```env
-PORT=
-NODE_ENV=
-MONGO_URI=
-```
+El archivo `.env.example` contiene las variables sin valores.
 
-La configuración valida la presencia de las variables requeridas y que `PORT` sea un entero entre 1 y 65535.
-
-El archivo `.env` y la carpeta `node_modules/` están excluidos mediante `.gitignore`.
+`.env` y `node_modules/` están excluidos mediante `.gitignore`. No deben subirse credenciales reales al repositorio.
 
 ## Ejecución
 
-Iniciar la aplicación:
+Iniciar el servidor:
 
 ```bash
 npm start
 ```
 
-Ejecutar en modo de desarrollo con reinicio ante cambios:
+Ejecutar en desarrollo con reinicio automático:
 
 ```bash
 npm run dev
 ```
 
-La aplicación se conecta a MongoDB antes de comenzar a escuchar peticiones.
+El servidor comienza a escuchar después de establecer la conexión con MongoDB.
 
-Con `PORT=8080`, la dirección local es:
+Con `PORT=8080`, la dirección base es:
 
 ```text
 http://localhost:8080
 ```
 
-Express y Socket.IO comparten el mismo servidor HTTP y puerto.
+La API, las vistas y Socket.IO comparten el mismo servidor HTTP.
 
 ## Arquitectura
 
-La API mantiene el siguiente flujo:
+Las peticiones de la API recorren las siguientes capas:
 
 ```text
-Router → Controller → Service → Repository → DAO → Modelo Mongoose → MongoDB
+Router → Controller → Service → Repository → DAO → Modelo de Mongoose
 ```
 
 | Capa | Responsabilidad |
-|---|---|
-| Routes | Define las rutas y las vincula con sus controllers. |
-| Controllers | Lee la petición, llama al service y construye la respuesta. |
-| Services | Aplica validaciones y reglas de negocio. |
-| Repositories | Ofrece métodos de acceso a datos y delega en los DAO. |
-| DAO | Realiza las operaciones de persistencia mediante Mongoose. |
-| Models | Define los esquemas de los documentos de MongoDB. |
+| --- | --- |
+| Router | Define los endpoints y conecta los middlewares con los controllers. |
+| Middleware de validación | Valida los datos de la petición con los esquemas de Zod. |
+| Controller | Lee los datos validados, llama al service y construye la respuesta HTTP. |
+| Service | Aplica las reglas de negocio. |
+| Repository | Ofrece métodos de acceso a datos. |
+| DAO | Ejecuta las consultas y operaciones de persistencia. |
+| Modelo | Define la estructura de los documentos en MongoDB. |
 
-Los services, repositories y DAO no utilizan `req` ni `res`.
+Los esquemas se encuentran en `src/validators/` y el middleware reutilizable en `src/middlewares/`.
 
-Las vistas consultan los mismos services que utiliza la API. Los controllers de vistas no acceden directamente a MongoDB.
+Los services, repositories y DAOs no utilizan `req` ni `res`.
 
-Los eventos del chat ingresan por `messages.socket.js`, que llama al service de mensajes. La validación y la persistencia conservan sus capas correspondientes.
+Los controllers de vistas utilizan la capa de services. Los manejadores de Socket.IO también acceden a los mensajes a través de su service.
 
-## Estructura principal
+## Organización de archivos
 
-```text
-src/
-├── config/
-│   ├── db.config.js
-│   └── env.config.js
-├── controllers/
-│   ├── bookings.controller.js
-│   ├── services.controller.js
-│   └── views.controller.js
-├── dao/
-│   ├── bookings.dao.js
-│   ├── messages.dao.js
-│   └── services.dao.js
-├── models/
-│   ├── booking.model.js
-│   ├── message.model.js
-│   └── service.model.js
-├── public/
-│   ├── css/
-│   │   └── styles.css
-│   └── js/
-│       └── socket.js
-├── repositories/
-│   ├── bookings.repository.js
-│   ├── messages.repository.js
-│   └── services.repository.js
-├── routes/
-│   ├── bookings.router.js
-│   ├── services.router.js
-│   └── views.router.js
-├── services/
-│   ├── bookings.service.js
-│   ├── messages.service.js
-│   └── services.service.js
-├── sockets/
-│   └── messages.socket.js
-├── views/
-│   ├── layouts/
-│   │   └── main.handlebars
-│   ├── availability.handlebars
-│   ├── messages.handlebars
-│   └── services.handlebars
-├── app.js
-└── server.js
-.env.example
-.gitignore
-package-lock.json
-package.json
-README.md
-```
+- `src/config/`: configuración de entorno y conexión a MongoDB.
+- `src/controllers/`: controllers de servicios, reservas y vistas.
+- `src/routes/`: routers de la API y las vistas.
+- `src/middlewares/`: middleware de validación.
+- `src/validators/`: esquemas de Zod.
+- `src/services/`: reglas de negocio.
+- `src/repositories/`: acceso a las operaciones de persistencia.
+- `src/dao/`: consultas a MongoDB mediante Mongoose.
+- `src/models/`: modelos de servicios, reservas y mensajes.
+- `src/sockets/`: manejadores de eventos de mensajes.
+- `src/views/`: plantillas y layout de Handlebars.
+- `src/public/`: estilos y código del navegador.
+- `src/app.js`: configuración de Express.
+- `src/server.js`: conexión a la base de datos e inicio del servidor.
 
-## Persistencia e identificadores
-
-Los datos se almacenan en MongoDB. Los archivos JSON y los managers de las primeras entregas fueron reemplazados en etapas anteriores.
-
-MongoDB genera los identificadores automáticamente. La API expone el identificador como `id`, representado mediante una cadena de texto.
-
-Las referencias a servicios dentro de las reservas se almacenan como `ObjectId` y se presentan como cadenas en las respuestas.
-
-Los datos de una base de datos local o de Atlas no forman parte del repositorio. Una base nueva puede comenzar sin servicios, reservas ni mensajes.
+La persistencia actual utiliza MongoDB. Los archivos JSON y los managers de las primeras entregas fueron reemplazados.
 
 ## Recurso services
 
 Cada servicio contiene:
 
-| Campo | Descripción |
-|---|---|
-| `id` | Identificador generado automáticamente. |
-| `name` | Nombre del servicio. |
-| `description` | Descripción. |
-| `duration` | Duración en minutos. |
-| `price` | Precio. |
-| `category` | Categoría. |
-| `available` | Disponibilidad del servicio. |
+| Campo | Tipo | Descripción |
+| --- | --- | --- |
+| `id` | String | Identificador generado a partir del ObjectId de MongoDB. |
+| `name` | String | Nombre del servicio. |
+| `description` | String | Descripción. |
+| `duration` | Number | Duración en minutos, mayor que cero. |
+| `price` | Number | Precio mayor o igual que cero. |
+| `category` | String | Categoría. |
+| `available` | Boolean | Indica si está disponible. |
 
-Para crear un servicio se requieren los seis campos de datos.
+Los seis campos de datos son obligatorios al crear un servicio.
 
-- `name`, `description` y `category` deben ser textos no vacíos.
-- `duration` debe ser un número finito mayor que cero.
-- `price` debe ser un número finito mayor o igual que cero.
-- `available` debe ser un booleano.
-- El identificador se genera internamente y no puede modificarse.
-
-Ejemplo de body para crear un servicio:
+Ejemplo de body para `POST /api/services`:
 
 ```json
 {
   "name": "Consulta general",
   "description": "Consulta inicial para evaluar al cliente",
   "duration": 30,
-  "price": 15000,
+  "price": 18000,
   "category": "Consultas",
   "available": true
 }
 ```
 
-Ejemplo de actualización parcial:
+El cliente no debe enviar el `id`: se genera automáticamente.
+
+`PUT /api/services/:sid` permite actualizar parcialmente los campos:
 
 ```json
 {
-  "price": 18000,
+  "price": 20000,
   "available": false
 }
 ```
+
+El identificador no puede modificarse. Los campos desconocidos, incluido un `id` enviado en el body, se descartan durante la validación.
+
+## Endpoints de servicios
+
+| Método | Ruta | Resultado |
+| --- | --- | --- |
+| GET | `/api/services` | Listado paginado con filtros y ordenamiento. |
+| GET | `/api/services/:sid` | Servicio por identificador. |
+| POST | `/api/services` | Creación de un servicio. |
+| PUT | `/api/services/:sid` | Actualización de un servicio. |
+| DELETE | `/api/services/:sid` | Eliminación de un servicio. |
+
+## Filtros, paginación y ordenamiento
+
+`GET /api/services` acepta los siguientes query params:
+
+| Parámetro | Descripción | Valor predeterminado |
+| --- | --- | --- |
+| `category` | Filtra por categoría completa, sin distinguir mayúsculas y minúsculas. | Sin filtro |
+| `available` | Acepta `true` o `false`, sin distinguir mayúsculas y minúsculas. | Sin filtro |
+| `page` | Número entero de página, desde 1. | `1` |
+| `limit` | Cantidad de resultados por página, entre 1 y 100. | `10` |
+| `sortBy` | Campo utilizado para ordenar. | `id` |
+| `order` | Dirección `asc` o `desc`. | `asc` |
+
+Campos permitidos en `sortBy`:
+
+```text
+id, name, description, duration, price, category, available
+```
+
+Si varios servicios tienen el mismo valor en el campo de ordenamiento, se utiliza su identificador como criterio adicional.
+
+Ejemplos:
+
+```text
+GET /api/services
+GET /api/services?page=1&limit=2
+GET /api/services?category=consultas
+GET /api/services?available=true
+GET /api/services?sortBy=price&order=desc
+GET /api/services?category=pruebas&available=false&page=1&limit=5&sortBy=price&order=desc
+```
+
+Los filtros se pueden combinar.
+
+Ejemplo de respuesta:
+
+```json
+{
+  "services": [
+    {
+      "id": "6ac4f4ba99fb98cc2986b4d1",
+      "name": "Consulta general",
+      "description": "Consulta inicial para evaluar al cliente",
+      "duration": 30,
+      "price": 18000,
+      "category": "Consultas",
+      "available": true
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 10,
+  "totalPages": 1,
+  "hasPrevPage": false,
+  "hasNextPage": false
+}
+```
+
+`total` representa la cantidad de servicios que cumplen los filtros antes de aplicar la paginación.
+
+Si no hay coincidencias, la respuesta es `200`, con `services: []`, `total: 0` y `totalPages: 0`.
+
+Si se solicita una página posterior a la última, se devuelve un listado vacío conservando la página solicitada.
+
+Esta entrega cambia la respuesta del listado: el array ahora se encuentra dentro de la propiedad `services`, acompañado por los metadatos.
 
 ## Recurso bookings
 
 Cada reserva contiene:
 
 | Campo | Descripción |
-|---|---|
-| `id` | Identificador generado automáticamente. |
+| --- | --- |
+| `id` | Identificador generado por MongoDB. |
 | `clientName` | Nombre del cliente. |
-| `clientEmail` | Correo del cliente. |
-| `date` | Fecha con formato `YYYY-MM-DD`. |
-| `time` | Hora con formato `HH:mm`. |
-| `status` | Estado de la reserva. |
+| `clientEmail` | Correo electrónico. |
+| `date` | Fecha válida con formato `YYYY-MM-DD`. |
+| `time` | Hora válida con formato `HH:mm`. |
+| `status` | Estado de la reserva; por defecto, `pending`. |
 | `services` | Referencias a servicios y sus cantidades. |
 
-Ejemplo de body para crear una reserva:
+Ejemplo de body para `POST /api/bookings`:
 
 ```json
 {
@@ -286,229 +289,238 @@ Ejemplo de body para crear una reserva:
 }
 ```
 
-Se validan los datos obligatorios, el formato del correo, la fecha y la hora.
+`status` puede omitirse y toma el valor `pending`.
 
-Si se omite `status`, se utiliza `pending`.
+`services` puede omitirse o enviarse vacío. Para asociar servicios se utiliza el endpoint específico.
 
-La reserva se crea sin servicios asociados. Los servicios se agregan mediante el endpoint correspondiente.
+## Endpoints de reservas
 
-Dentro de una reserva, cada elemento tiene esta forma:
+| Método | Ruta | Resultado |
+| --- | --- | --- |
+| POST | `/api/bookings` | Creación de una reserva. |
+| GET | `/api/bookings/:bid` | Consulta de una reserva con servicios completos. |
+| POST | `/api/bookings/:bid/services/:sid` | Asociación de un servicio a una reserva. |
 
-```json
+Para asociar un servicio:
+
+```text
+POST /api/bookings/ID_RESERVA/services/ID_SERVICIO
+```
+
+Esta petición no necesita body. Ambos identificadores deben corresponder a documentos existentes.
+
+Si el servicio ya está asociado, se incrementa `quantity`. Esta regla se implementa en la capa de services.
+
+## Referencias y populate
+
+MongoDB almacena cada servicio de la reserva como una referencia:
+
+```javascript
 {
-  "service": "OBJECT_ID_DEL_SERVICIO",
-  "quantity": 1
+  service: ObjectId("6ac4f4ba99fb98cc2986b4d1"),
+  quantity: 2
 }
 ```
 
-Antes de agregar un servicio se comprueba que existan tanto la reserva como el servicio.
+El objeto completo del servicio no se guarda dentro de la reserva.
 
-Si el servicio ya está asociado, se incrementa `quantity`. Esta regla se encuentra en `bookings.service.js`.
-
-## Endpoints REST
-
-| Método | Ruta | Comportamiento |
-|---|---|---|
-| GET | `/api/services` | Lista los servicios y admite filtros. |
-| GET | `/api/services/:sid` | Obtiene un servicio por ID. |
-| POST | `/api/services` | Crea un servicio. |
-| PUT | `/api/services/:sid` | Actualiza un servicio existente. |
-| DELETE | `/api/services/:sid` | Elimina un servicio. |
-| POST | `/api/bookings` | Crea una reserva. |
-| GET | `/api/bookings/:bid` | Obtiene una reserva por ID. |
-| POST | `/api/bookings/:bid/services/:sid` | Agrega un servicio a una reserva. |
-
-Los parámetros `:sid` y `:bid` deben reemplazarse por identificadores reales.
-
-Las peticiones POST y PUT que envían un body JSON deben utilizar:
+Al consultar:
 
 ```text
-Content-Type: application/json
+GET /api/bookings/ID_RESERVA
 ```
 
-En Postman se configura mediante `Body → raw → JSON`.
+El DAO utiliza `populate` para recuperar la información del servicio asociado.
 
-### Filtros de servicios
+Ejemplo de respuesta:
 
-Por categoría:
-
-```text
-GET /api/services?category=consultas
+```json
+{
+  "id": "6ad151cc5dc42f39e72f649a",
+  "clientName": "Cliente de prueba",
+  "clientEmail": "cliente@example.com",
+  "date": "2026-11-10",
+  "time": "16:00",
+  "status": "pending",
+  "services": [
+    {
+      "service": {
+        "id": "6ac4f4ba99fb98cc2986b4d1",
+        "name": "Consulta general",
+        "description": "Consulta inicial para evaluar al cliente",
+        "duration": 30,
+        "price": 18000,
+        "category": "Consultas",
+        "available": true
+      },
+      "quantity": 2
+    }
+  ]
+}
 ```
 
-Por disponibilidad:
+Los identificadores de los ejemplos deben reemplazarse por los de la base de datos utilizada.
 
-```text
-GET /api/services?available=true
-```
+`populate` se aplica a la consulta de la reserva. Las operaciones de creación y asociación conservan las referencias y no guardan los objetos completos.
 
-Filtros combinados:
+Si un servicio asociado fue eliminado, su referencia se muestra como `null` en la consulta poblada.
 
-```text
-GET /api/services?category=consultas&available=true
-```
+## Validación con Zod
 
-La categoría se compara sin distinguir mayúsculas y minúsculas.
+Se validan las siguientes operaciones antes de acceder a MongoDB:
 
-El filtro `available` admite `true` o `false`, sin distinguir mayúsculas y minúsculas. Un valor inválido produce una respuesta 400.
+- Crear servicios.
+- Actualizar servicios.
+- Crear reservas.
+- Agregar servicios a reservas.
+- Consultar servicios con filtros, paginación y ordenamiento.
+- Validar los identificadores utilizados en las rutas de servicios y reservas.
 
-Si no hay coincidencias, se devuelve un array vacío.
+Las validaciones controlan:
 
-### Códigos HTTP
+- Campos obligatorios.
+- Textos no vacíos.
+- Tipos de datos.
+- Duración positiva y precio no negativo.
+- Disponibilidad como booleano real.
+- Formato de correo electrónico.
+- Fechas y horas válidas.
+- Identificadores de 24 caracteres hexadecimales.
+- Valores permitidos en filtros y ordenamiento.
+- Parámetros de paginación.
 
-| Código | Significado |
-|---|---|
-| 200 | Consulta, actualización, eliminación o asociación exitosa. |
-| 201 | Servicio o reserva creados. |
-| 400 | Datos o filtros inválidos. |
-| 404 | Servicio o reserva no encontrados. |
-| 500 | Falla interna del servidor o de persistencia. |
+En el body, `available` debe ser `true` o `false`, sin comillas. Los campos numéricos también deben enviarse como números.
 
-Las consultas de recursos con identificadores que no tienen un formato ObjectId válido se tratan como recursos no encontrados.
+En los query params, los valores llegan como texto y el esquema los transforma cuando corresponde.
 
-Los errores de validación se diferencian de las fallas internas. Estas últimas se registran en el servidor y devuelven un mensaje general al cliente.
+Los datos inválidos reciben `400 Bad Request`, con un mensaje y el detalle de los campos afectados.
+
+Las validaciones de Mongoose y los controles de negocio complementan esta validación de entrada.
+
+## Códigos HTTP
+
+| Código | Uso |
+| --- | --- |
+| `200` | Consulta, actualización, eliminación o asociación exitosa. |
+| `201` | Servicio o reserva creados. |
+| `400` | Datos, parámetros o identificadores inválidos. |
+| `404` | Identificador válido que no corresponde a un recurso existente. |
+| `500` | Error interno al procesar la operación. |
+
+Los errores de entrada se diferencian de los errores internos. Los detalles técnicos de los errores internos se registran en la consola del servidor.
 
 ## Vistas con Handlebars
 
 | Ruta | Contenido |
-|---|---|
-| `/views/services` | Todos los servicios registrados. |
-| `/views/availability` | Servicios cuyo campo `available` es `true`. |
-| `/views/messages` | Historial del chat y formulario de envío. |
+| --- | --- |
+| `/views/services` | Todos los servicios. |
+| `/views/availability` | Servicios con `available: true`. |
+| `/views/messages` | Historial y formulario de mensajes. |
 
-Las vistas utilizan datos obtenidos desde MongoDB a través de las capas de la aplicación.
+Las vistas utilizan datos reales de MongoDB, obtenidos mediante la arquitectura en capas.
 
-El layout `main.handlebars` comparte la navegación, los estilos y los scripts.
+La vista de disponibilidad muestra servicios habilitados. No representa horarios libres ni comprueba superposición de turnos.
 
-La vista de disponibilidad muestra servicios habilitados. No calcula horarios libres ni verifica superposiciones de reservas.
+## Servicios en tiempo real
 
-## Actualización de servicios en tiempo real
-
-Después de crear, actualizar o eliminar correctamente un servicio, el controller emite:
+Al crear, actualizar o eliminar un servicio mediante la API, el servidor emite:
 
 ```text
 services:changed
 ```
 
-El navegador escucha el evento y consulta nuevamente la API REST.
+El navegador escucha el evento y consulta nuevamente la API para actualizar el listado sin recargar la página.
 
-- La vista de servicios consulta `/api/services`.
-- La vista de disponibilidad consulta `/api/services?available=true`.
+Las vistas mantienen el listado completo: el código del navegador recorre las páginas de la API cuando es necesario.
 
-El listado y su contador se actualizan sin recargar la página.
+Cambiar `available` actualiza tanto el estado mostrado en la vista general como la presencia del servicio en la vista de disponibilidad.
 
-Al conectar o reconectar Socket.IO, las vistas también consultan la API para recuperar el estado actual.
+## Mensajes persistentes y Socket.IO
 
-Si una consulta falla, se conserva el listado anterior y se muestra un aviso.
-
-La carga inicial sigue siendo renderizada por Handlebars; JavaScript realiza las actualizaciones posteriores.
-
-## Chat y recurso messages
-
-El chat se incorporó como una ampliación voluntaria.
-
-En la entrega anterior, el docente indicó que la entidad messages podía omitirse debido a una inconsistencia en la consigna. En esta etapa se agregó para practicar persistencia de mensajes y comunicación en tiempo real, aplicando lo visto en la clase del 28 de septiembre del módulo 6.
+En la entrega anterior, el docente indicó que la entidad `messages` podía omitirse debido a una inconsistencia en la consigna. En esta etapa se agregó para practicar persistencia de mensajes y comunicación en tiempo real, aplicando lo visto en la clase del 28 de septiembre del módulo 6.
 
 Cada mensaje contiene:
 
-| Campo | Descripción |
-|---|---|
-| `id` | Identificador generado por MongoDB. |
-| `author` | Nombre escrito por quien envía el mensaje. |
-| `text` | Contenido del mensaje. |
-| `createdAt` | Fecha de creación generada en el servidor. |
+- `id`: identificador generado por MongoDB.
+- `author`: nombre indicado por quien envía el mensaje.
+- `text`: contenido.
+- `createdAt`: fecha de creación.
 
-Se definieron los siguientes límites para esta ampliación:
+El autor admite hasta 100 caracteres y el texto hasta 1000. Ambos deben ser textos no vacíos.
 
-- Autor obligatorio, con un máximo de 100 caracteres.
-- Texto obligatorio, con un máximo de 1000 caracteres.
-- No se aceptan valores compuestos únicamente por espacios.
+Los mensajes se guardan en MongoDB antes de notificarse a los clientes conectados.
 
-El nombre del autor es ingresado libremente y no representa una cuenta autenticada.
+| Evento | Función |
+| --- | --- |
+| `messages:list` | Solicita el historial. |
+| `messages:create` | Solicita guardar un mensaje. |
+| `messages:created` | Notifica un mensaje guardado a los clientes. |
 
-### Eventos del chat
+Las solicitudes de Socket.IO utilizan respuestas de confirmación. No utilizan códigos HTTP como los endpoints REST.
 
-| Evento | Dirección | Función |
-|---|---|---|
-| `messages:list` | Cliente → servidor | Solicita el historial persistido. |
-| `messages:create` | Cliente → servidor | Solicita guardar un mensaje. |
-| `messages:created` | Servidor → clientes | Comunica un mensaje guardado correctamente. |
+El cliente recupera el historial al conectarse y evita mostrar mensajes duplicados por identificador.
 
-El servidor valida y guarda el mensaje antes de emitir `messages:created`.
+El contenido se muestra como texto, sin interpretar HTML ingresado por el usuario.
 
-Las solicitudes del cliente reciben una confirmación con `ok: true` o un resultado de error con `ok: false`.
-
-Estas confirmaciones pertenecen a Socket.IO; no son códigos de estado HTTP.
-
-El cliente evita mostrar mensajes duplicados por ID y solicita el historial al reconectarse.
-
-Si no llega una confirmación de envío dentro del tiempo esperado, se informa al usuario. El mensaje no se reenvía automáticamente, porque podría haberse guardado aunque la confirmación no haya llegado.
-
-El chat utiliza Socket.IO para enviar mensajes; no incorpora endpoints REST de mensajes.
-
-### Representación del contenido
-
-Handlebars utiliza expresiones escapadas para mostrar los datos de los usuarios.
-
-Las actualizaciones del navegador utilizan `textContent` para representar nombres, descripciones y mensajes como texto.
+El nombre del autor es un dato del formulario; no representa una identidad autenticada.
 
 ## Pruebas manuales
 
-Las pruebas se realizan con Postman y un navegador.
+Las comprobaciones pueden realizarse con Postman y el navegador, manteniendo el servidor en ejecución.
 
-### API REST
+### API y validaciones
 
-1. Crear un servicio con un POST válido y comprobar la respuesta 201.
-2. Consultar el listado y el servicio por ID.
-3. Probar los filtros por categoría y disponibilidad.
-4. Actualizar precio o disponibilidad mediante PUT.
-5. Comprobar que el ID del servicio se conserve.
-6. Enviar datos incompletos y comprobar la respuesta 400.
-7. Consultar un ID inexistente y comprobar la respuesta 404.
-8. Crear una reserva y comprobar la respuesta 201.
-9. Agregar un servicio a la reserva.
-10. Agregarlo nuevamente y comprobar que aumente `quantity`.
-11. Intentar asociar un servicio inexistente y comprobar la respuesta 404.
-12. Eliminar el servicio temporal utilizado en las pruebas.
+1. Crear un servicio válido y comprobar el código `201`.
+2. Consultarlo por su identificador.
+3. Actualizar su precio o disponibilidad.
+4. Comprobar que el identificador no pueda modificarse.
+5. Enviar campos incompletos o de tipos incorrectos y verificar `400`.
+6. Consultar un identificador válido inexistente y verificar `404`.
+7. Eliminar un servicio de prueba.
 
-### Vistas y servicios en tiempo real
+### Consultas avanzadas
 
-1. Abrir `/views/services` y `/views/availability` en dos pestañas.
-2. Crear desde Postman un servicio temporal con `available: true`.
-3. Comprobar que aparezca en ambas vistas sin recargar.
-4. Actualizarlo mediante PUT con `available: false`.
-5. Comprobar que siga en el listado general como no disponible.
-6. Comprobar que desaparezca de la vista de disponibilidad.
-7. Volver a establecer `available: true`.
-8. Comprobar que reaparezca en disponibilidad.
-9. Eliminar el servicio temporal.
-10. Comprobar que desaparezca de ambas vistas y se actualicen los contadores.
+1. Crear varios servicios con precios y categorías diferentes.
+2. Consultar con `page` y `limit`.
+3. Comprobar el listado y los metadatos de cada página.
+4. Ordenar por precio en ambos sentidos.
+5. Combinar los filtros de categoría y disponibilidad.
+6. Consultar un filtro sin coincidencias.
+7. Enviar parámetros inválidos, como `page=0` o un `sortBy` no permitido, y verificar `400`.
 
-### Chat
+### Reservas y populate
 
-1. Abrir `/views/messages` en dos pestañas.
-2. Esperar el estado de conexión y la habilitación del botón.
-3. Enviar un mensaje desde una pestaña.
-4. Comprobar que aparezca en ambas sin recargar.
-5. Recargar una pestaña y comprobar que el mensaje continúe en el historial.
+1. Crear una reserva y comprobar el código `201`.
+2. Asociar un servicio existente.
+3. Asociarlo nuevamente y comprobar `quantity: 2`.
+4. Consultar la reserva y verificar los datos completos del servicio.
+5. Revisar en Atlas que la reserva almacene el ObjectId y la cantidad.
+6. Intentar asociar un recurso inexistente y comprobar `404`.
+7. Enviar identificadores malformados y comprobar `400`.
 
-Las pruebas de creación, actualización y eliminación en tiempo real, junto con el envío y persistencia del chat, se verificaron manualmente durante el desarrollo.
+### Persistencia, vistas y tiempo real
 
-El proyecto no incorpora todavía una suite de tests automatizados.
+1. Reiniciar el servidor y comprobar que los datos permanezcan.
+2. Abrir las vistas de servicios y disponibilidad.
+3. Crear, actualizar y eliminar un servicio mediante la API.
+4. Comprobar los cambios sin recargar las vistas.
+5. Cambiar `available` y comprobar la actualización de ambos listados.
+6. Abrir el chat en dos pestañas y enviar un mensaje.
+7. Verificar que aparezca en ambas.
+8. Recargar el chat y comprobar que el historial permanezca.
 
-## Alcance y limitaciones
+Estas pruebas son manuales. El proyecto no incluye una suite de tests automatizados.
 
-- No hay autenticación ni autorización.
-- El chat es compartido y los autores no tienen identidad verificada.
-- El historial del chat se obtiene completo, sin paginación.
-- No se calcula disponibilidad por fecha y horario.
-- No se bloquean reservas superpuestas.
-- La asociación de servicios a reservas valida su existencia, pero no exige que estén disponibles.
-- Eliminar un servicio no elimina sus referencias en reservas anteriores.
-- No se incluyen endpoints para actualizar o eliminar reservas.
-- La actualización de cantidades en reservas no utiliza todavía una operación atómica para solicitudes concurrentes.
-- Los eventos de servicios corresponden a cambios realizados mediante esta API. Las modificaciones directas en Atlas no generan esos eventos.
-- La configuración de Socket.IO corresponde a una única instancia del servidor.
+## Alcance actual
+
+- No incluye autenticación ni autorización.
+- No valida conflictos de horarios entre reservas.
+- La disponibilidad del servicio no representa una agenda de turnos.
+- El chat es compartido y su historial no está paginado.
+- No se implementaron endpoints para actualizar o eliminar reservas.
+- Eliminar un servicio no elimina sus referencias en reservas existentes.
+- Los cambios realizados directamente en Atlas no emiten eventos de Socket.IO.
+- La actualización de cantidades no incorpora todavía un mecanismo específico para resolver solicitudes simultáneas.
 
 ## Autor
 

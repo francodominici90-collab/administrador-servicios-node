@@ -9,7 +9,7 @@ const requiredFields = [
   "available"
 ];
 
-/* Obtener servicios y aplicar filtros */
+// Listado completo utilizado por las vistas Handlebars.
 export async function getServices(filters = {}) {
   const { category, available } = filters;
 
@@ -47,12 +47,30 @@ export async function getServices(filters = {}) {
   return services;
 }
 
-/* Obtener un servicio por ID */
+// Listado paginado utilizado por GET /api/services.
+export async function getPaginatedServices(options) {
+  const { page, limit } = options;
+
+  const { services, total } =
+    await servicesRepository.getPaginated(options);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    services,
+    total,
+    page,
+    limit,
+    totalPages,
+    hasPrevPage: page > 1 && totalPages > 0,
+    hasNextPage: page < totalPages
+  };
+}
+
 export async function getServiceById(id) {
   return servicesRepository.getById(id);
 }
 
-/* Validar y crear un servicio */
 export async function createService(serviceData) {
   validateServiceData(serviceData);
 
@@ -68,7 +86,6 @@ export async function createService(serviceData) {
   return servicesRepository.create(newService);
 }
 
-/* Validar y actualizar un servicio */
 export async function updateService(id, updatedData) {
   const currentService = await servicesRepository.getById(id);
 
@@ -78,7 +95,6 @@ export async function updateService(id, updatedData) {
 
   validateObject(updatedData);
 
-  /* Excluir el ID enviado por el cliente */
   const { id: ignoredId, ...allowedUpdates } = updatedData;
 
   const updatedService = {
@@ -96,12 +112,10 @@ export async function updateService(id, updatedData) {
   return servicesRepository.update(id, updatedService);
 }
 
-/* Eliminar un servicio */
 export async function deleteService(id) {
   return servicesRepository.delete(id);
 }
 
-/* Comprobar que los datos sean un objeto */
 function validateObject(serviceData) {
   if (
     !serviceData ||
@@ -114,7 +128,6 @@ function validateObject(serviceData) {
   }
 }
 
-/* Validar los campos y sus valores */
 function validateServiceData(serviceData) {
   validateObject(serviceData);
 
@@ -173,7 +186,6 @@ function validateServiceData(serviceData) {
   }
 }
 
-/* Identificar los errores de validación */
 function validationError(message) {
   const error = new Error(message);
   error.statusCode = 400;

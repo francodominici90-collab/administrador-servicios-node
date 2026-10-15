@@ -1,7 +1,6 @@
 import * as bookingsRepository from "../repositories/bookings.repository.js";
 import * as servicesRepository from "../repositories/services.repository.js";
 
-/* Validar y crear una reserva */
 export async function createBooking(bookingData) {
   if (
     !bookingData ||
@@ -45,7 +44,6 @@ export async function createBooking(bookingData) {
   const date = bookingData.date.trim();
   const time = bookingData.time.trim();
 
-  /* Validar el formato y que la fecha exista */
   const parsedDate = new Date(`${date}T00:00:00.000Z`);
 
   if (
@@ -80,7 +78,6 @@ export async function createBooking(bookingData) {
     );
   }
 
-  /* Los servicios se agregan mediante su operación específica */
   if (
     bookingData.services !== undefined &&
     (
@@ -106,13 +103,13 @@ export async function createBooking(bookingData) {
   return bookingsRepository.create(newBooking);
 }
 
-/* Obtener una reserva por ID */
+// El GET de la API devuelve los servicios completos.
 export async function getBookingById(id) {
-  return bookingsRepository.getById(id);
+  return bookingsRepository.getByIdWithServices(id);
 }
 
-/* Agregar un servicio o incrementar su cantidad */
 export async function addServiceToBooking(bookingId, serviceId) {
+  // Para actualizar necesitamos las referencias, sin populate.
   const booking = await bookingsRepository.getById(bookingId);
 
   if (booking === null) {
@@ -150,7 +147,6 @@ export async function addServiceToBooking(bookingId, serviceId) {
   return updatedBooking;
 }
 
-/* Identificar errores de validación o recursos inexistentes */
 function createError(message, statusCode) {
   const error = new Error(message);
   error.statusCode = statusCode;

@@ -7,6 +7,57 @@ export async function getAll() {
   return services.map(toService);
 }
 
+export async function getPaginated({
+  category,
+  available,
+  page,
+  limit,
+  sortBy,
+  order
+}) {
+  const filter = {};
+
+  if (category !== undefined) {
+    filter.category = {
+      $regex: `^${escapeRegExp(category)}$`,
+      $options: "i"
+    };
+  }
+
+  if (available !== undefined) {
+    filter.available = available;
+  }
+
+  const sortField = sortBy === "id" ? "_id" : sortBy;
+  const sortDirection = order === "desc" ? -1 : 1;
+
+  const sort = {
+    [sortField]: sortDirection
+  };
+
+  // Desempata resultados para mantener un orden consistente.
+  if (sortField !== "_id") {
+    sort._id = sortDirection;
+  }
+
+  const skip = (page - 1) * limit;
+
+  const [documents, total] = await Promise.all([
+    Service.find(filter)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+
+    Service.countDocuments(filter)
+  ]);
+
+  return {
+    services: documents.map(toService),
+    total
+  };
+}
+
 export async function getById(id) {
   if (!mongoose.isObjectIdOrHexString(id)) {
     return null;
@@ -18,7 +69,9 @@ export async function getById(id) {
 }
 
 export async function create(serviceData) {
-  const service = await Service.create(toPersistenceData(serviceData));
+  const service = await Service.create(
+    toPersistenceData(serviceData)
+  );
 
   return toService(service);
 }
@@ -30,7 +83,9 @@ export async function update(id, updatedData) {
 
   const service = await Service.findByIdAndUpdate(
     id,
-    { $set: toPersistenceData(updatedData) },
+    {
+      $set: toPersistenceData(updatedData)
+    },
     {
       returnDocument: "after",
       runValidators: true
@@ -51,6 +106,10 @@ async function deleteById(id) {
 }
 
 export { deleteById as delete };
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 function toPersistenceData(data) {
   const fields = [

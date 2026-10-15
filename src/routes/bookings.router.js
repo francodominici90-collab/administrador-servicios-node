@@ -6,11 +6,32 @@ import {
   addServiceToBooking
 } from "../controllers/bookings.controller.js";
 
+import { validate } from "../middlewares/validate.middleware.js";
+
+import {
+  createBookingSchema,
+  bookingParamsSchema,
+  addServiceToBookingParamsSchema
+} from "../validators/bookings.schema.js";
+
 const bookingsRouter = express.Router();
 
-/* Conectar cada endpoint con su controller */
-bookingsRouter.post("/", createBooking);
-bookingsRouter.get("/:bid", getBookingById);
-bookingsRouter.post("/:bid/services/:sid", addServiceToBooking);
+bookingsRouter.post(
+  "/",
+  validate(createBookingSchema),
+  createBooking
+);
+
+bookingsRouter.get(
+  "/:bid",
+  validate(bookingParamsSchema, "params"),
+  getBookingById
+);
+
+bookingsRouter.post(
+  "/:bid/services/:sid",
+  validate(addServiceToBookingParamsSchema, "params"),
+  addServiceToBooking
+);
 
 export default bookingsRouter;

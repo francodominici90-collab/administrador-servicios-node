@@ -26,7 +26,6 @@ if (chatView) {
   }
 
   function showMessage(message) {
-    // Evita repetir un mensaje recibido por distintos eventos.
     if (displayedIds.has(message.id)) return;
 
     document.getElementById("messages-empty")?.remove();
@@ -44,11 +43,12 @@ if (chatView) {
 
     const time = document.createElement("time");
     time.dateTime = message.createdAt;
-    time.textContent = new Date(message.createdAt).toLocaleString("es-AR");
+    time.textContent = new Date(
+      message.createdAt
+    ).toLocaleString("es-AR");
 
     article.append(author, text, time);
 
-    // Mantiene el orden al recuperar mensajes tras una reconexión.
     const nextMessage = Array.from(
       messagesList.querySelectorAll("[data-message-id]")
     ).find((element) => {
@@ -56,8 +56,10 @@ if (chatView) {
 
       return (
         existingDate > message.createdAt ||
-        (existingDate === message.createdAt &&
-          element.dataset.messageId > message.id)
+        (
+          existingDate === message.createdAt &&
+          element.dataset.messageId > message.id
+        )
       );
     });
 
@@ -77,6 +79,7 @@ if (chatView) {
         status.textContent =
           response?.error ??
           "No se pudo actualizar el historial. Recargá la página.";
+
         return;
       }
 
@@ -134,12 +137,14 @@ if (chatView) {
         if (error) {
           status.textContent =
             "No llegó la confirmación. Revisá el historial antes de reenviar.";
+
           return;
         }
 
         if (!response?.ok) {
           status.textContent =
             response?.error ?? "No se pudo enviar el mensaje.";
+
           return;
         }
 
@@ -152,6 +157,7 @@ if (chatView) {
     );
   });
 }
+
 const servicesView = document.querySelector("[data-services-view]");
 
 if (servicesView) {
@@ -243,25 +249,47 @@ if (servicesView) {
     const requestId = ++latestRequest;
 
     try {
-      const response = await fetch(endpoint, {
-        cache: "no-store"
-      });
+      const services = [];
+      let page = 1;
+      let hasNextPage;
 
-      if (!response.ok) {
-        throw new Error("No se pudieron consultar los servicios");
-      }
+      do {
+        const url = new URL(endpoint, window.location.origin);
 
-      const services = await response.json();
+        url.searchParams.set("page", String(page));
+        url.searchParams.set("limit", "100");
 
-      // Una respuesta anterior no debe sobrescribir una más reciente.
-      if (requestId !== latestRequest || !socket.connected) return;
+        const response = await fetch(url, {
+          cache: "no-store"
+        });
+
+        if (!response.ok) {
+          throw new Error("No se pudieron consultar los servicios");
+        }
+
+        const result = await response.json();
+
+        if (requestId !== latestRequest || !socket.connected) {
+          return;
+        }
+
+        services.push(...result.services);
+
+        hasNextPage = result.hasNextPage;
+        page += 1;
+      } while (hasNextPage);
 
       renderServices(services);
       status.textContent = "Listado actualizado en tiempo real";
     } catch (error) {
-      if (requestId !== latestRequest || !socket.connected) return;
+      if (requestId !== latestRequest || !socket.connected) {
+        return;
+      }
 
-      console.error("Error al actualizar la vista:", error.message);
+      console.error(
+        "Error al actualizar la vista:",
+        error.message
+      );
 
       status.textContent =
         "No se pudo actualizar el listado. Se conserva la última información.";

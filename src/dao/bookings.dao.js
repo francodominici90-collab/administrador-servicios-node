@@ -1,12 +1,17 @@
 import mongoose from "mongoose";
+
 import Booking from "../models/booking.model.js";
+import Service from "../models/service.model.js";
 
 export async function create(bookingData) {
-  const booking = await Booking.create(toPersistenceData(bookingData));
+  const booking = await Booking.create(
+    toPersistenceData(bookingData)
+  );
 
   return toBooking(booking);
 }
 
+// Consulta con referencias: utilizada para modificar la reserva.
 export async function getById(id) {
   if (!mongoose.isObjectIdOrHexString(id)) {
     return null;
@@ -17,6 +22,22 @@ export async function getById(id) {
   return toBooking(booking);
 }
 
+// Consulta con los datos completos de los servicios.
+export async function getByIdWithServices(id) {
+  if (!mongoose.isObjectIdOrHexString(id)) {
+    return null;
+  }
+
+  const booking = await Booking.findById(id)
+    .populate({
+      path: "services.service",
+      model: Service
+    })
+    .lean();
+
+  return toBooking(booking, true);
+}
+
 export async function update(id, updatedData) {
   if (!mongoose.isObjectIdOrHexString(id)) {
     return null;
@@ -24,7 +45,9 @@ export async function update(id, updatedData) {
 
   const booking = await Booking.findByIdAndUpdate(
     id,
-    { $set: toPersistenceData(updatedData) },
+    {
+      $set: toPersistenceData(updatedData)
+    },
     {
       returnDocument: "after",
       runValidators: true
@@ -61,7 +84,7 @@ function toPersistenceData(data) {
   return result;
 }
 
-function toBooking(document) {
+function toBooking(document, populated = false) {
   if (!document) {
     return null;
   }
@@ -74,8 +97,26 @@ function toBooking(document) {
     time: document.time,
     status: document.status,
     services: document.services.map((item) => ({
-      service: item.service.toString(),
+      service: populated
+        ? toService(item.service)
+        : item.service.toString(),
       quantity: item.quantity
     }))
+  };
+}
+
+function toService(document) {
+  if (!document) {
+    return null;
+  }
+
+  return {
+    id: document._id.toString(),
+    name: document.name,
+    description: document.description,
+    duration: document.duration,
+    price: document.price,
+    category: document.category,
+    available: document.available
   };
 }
