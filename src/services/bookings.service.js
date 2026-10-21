@@ -147,9 +147,105 @@ export async function addServiceToBooking(bookingId, serviceId) {
   return updatedBooking;
 }
 
+export async function removeServiceFromBooking(
+  bookingId,
+  serviceId
+) {
+  const booking = await bookingsRepository.getById(bookingId);
+
+  if (booking === null) {
+    throw createError("Reserva no encontrada", 404);
+  }
+
+  const serviceIndex = booking.services.findIndex((item) => {
+    return item.service === serviceId;
+  });
+
+  if (serviceIndex === -1) {
+    throw createError(
+      "El servicio no está asociado a esta reserva",
+      404
+    );
+  }
+
+  // Quita la asociación completa, independientemente de quantity.
+  booking.services.splice(serviceIndex, 1);
+
+  const updatedBooking = await bookingsRepository.update(
+    bookingId,
+    booking
+  );
+
+  if (updatedBooking === null) {
+    throw createError("Reserva no encontrada", 404);
+  }
+
+  return updatedBooking;
+}
+
+export async function updateServiceQuantity(
+  bookingId,
+  serviceId,
+  quantity
+) {
+  if (!Number.isSafeInteger(quantity) || quantity < 1) {
+    throw createError(
+      "quantity debe ser un número entero positivo dentro del rango seguro",
+      400
+    );
+  }
+
+  const booking = await bookingsRepository.getById(bookingId);
+
+  if (booking === null) {
+    throw createError("Reserva no encontrada", 404);
+  }
+
+  const existingService = booking.services.find((item) => {
+    return item.service === serviceId;
+  });
+
+  if (!existingService) {
+    throw createError(
+      "El servicio no está asociado a esta reserva",
+      404
+    );
+  }
+
+  // Reemplaza la cantidad actual por la solicitada.
+  existingService.quantity = quantity;
+
+  const updatedBooking = await bookingsRepository.update(
+    bookingId,
+    booking
+  );
+
+  if (updatedBooking === null) {
+    throw createError("Reserva no encontrada", 404);
+  }
+
+  return updatedBooking;
+}
+
+export async function deleteBooking(bookingId) {
+  const deletedBooking = await bookingsRepository.delete(
+    bookingId
+  );
+
+  if (deletedBooking === null) {
+    throw createError("Reserva no encontrada", 404);
+  }
+
+  return deletedBooking;
+}
+
 function createError(message, statusCode) {
   const error = new Error(message);
   error.statusCode = statusCode;
 
   return error;
+}
+
+export async function getBookings() {
+  return bookingsRepository.getAll();
 }

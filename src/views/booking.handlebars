@@ -1,0 +1,79 @@
+<section>
+  <h1>{{title}}</h1>
+
+  <article class="service-card">
+    <h2>Datos de la reserva</h2>
+
+    <dl>
+      <dt>Identificador</dt>
+      <dd>{{booking.id}}</dd>
+
+      <dt>Cliente</dt>
+      <dd>{{booking.clientName}}</dd>
+
+      <dt>Correo electrónico</dt>
+      <dd>{{booking.clientEmail}}</dd>
+
+      <dt>Fecha</dt>
+      <dd>{{booking.date}}</dd>
+
+      <dt>Hora</dt>
+      <dd>{{booking.time}}</dd>
+
+      <dt>Estado</dt>
+      <dd>{{booking.status}}</dd>
+    </dl>
+  </article>
+
+  <h2>Servicios asociados</h2>
+
+  <div class="services-grid">
+    {{#each booking.services}}
+      <article class="service-card">
+        {{#if service}}
+          <h3>{{service.name}}</h3>
+          <p>{{service.description}}</p>
+
+          <dl>
+            <dt>Duración por unidad</dt>
+            <dd>{{service.duration}} minutos</dd>
+
+            <dt>Precio por unidad</dt>
+            <dd>$ {{service.price}}</dd>
+
+            <dt>Categoría</dt>
+            <dd>{{service.category}}</dd>
+
+            <dt>Cantidad</dt>
+            <dd>{{quantity}}</dd>
+          </dl>
+
+          {{#if service.available}}
+            <span class="badge badge-available">
+              Disponible
+            </span>
+          {{else}}
+            <span class="badge badge-unavailable">
+              No disponible
+            </span>
+          {{/if}}
+        {{else}}
+          <h3>Servicio eliminado del catálogo</h3>
+          <p>
+            El servicio asociado ya no existe.
+            La reserva conserva su referencia y cantidad.
+          </p>
+          <p>Cantidad: {{quantity}}</p>
+        {{/if}}
+      </article>
+    {{else}}
+      <p class="empty-state">
+        Esta reserva no tiene servicios asociados.
+      </p>
+    {{/each}}
+  </div>
+
+  <p>
+    <a href="/views/bookings">Volver a las reservas</a>
+  </p>
+</section>

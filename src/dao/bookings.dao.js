@@ -57,6 +57,18 @@ export async function update(id, updatedData) {
   return toBooking(booking);
 }
 
+async function deleteById(id) {
+  if (!mongoose.isObjectIdOrHexString(id)) {
+    return null;
+  }
+
+  const booking = await Booking.findByIdAndDelete(id).lean();
+
+  return toBooking(booking);
+}
+
+export { deleteById as delete };
+
 function toPersistenceData(data) {
   const fields = [
     "clientName",
@@ -119,4 +131,11 @@ function toService(document) {
     category: document.category,
     available: document.available
   };
+}
+export async function getAll() {
+  const bookings = await Booking.find()
+    .sort({ date: 1, time: 1, _id: 1 })
+    .lean();
+
+  return bookings.map((booking) => toBooking(booking));
 }

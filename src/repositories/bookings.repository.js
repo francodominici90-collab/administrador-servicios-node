@@ -15,3 +15,13 @@ export async function getByIdWithServices(id) {
 export async function update(id, updatedData) {
   return bookingsDao.update(id, updatedData);
 }
+
+async function deleteById(id) {
+  return bookingsDao.delete(id);
+}
+
+export { deleteById as delete };
+
+export async function getAll() {
+  return bookingsDao.getAll();
+}

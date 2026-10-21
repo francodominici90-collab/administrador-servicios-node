@@ -297,6 +297,9 @@ if (servicesView) {
   }
 
   socket.on("connect", () => {
+    console.log("Conexión de esta página:", socket.id);
+    console.log("Página:", window.location.pathname);
+    
     status.textContent = "Conectado. Actualizando servicios…";
     refreshServices();
   });
@@ -305,12 +308,21 @@ if (servicesView) {
     refreshServices();
   });
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", (reason, details) => {
+    console.log("Socket desconectado:", reason);
+    console.log("Detalle:", details?.message);
+    console.log("Contexto:", details?.context);
+    console.log("Intentará reconectarse:", socket.active);
+
     status.textContent =
       "Sin conexión. El listado puede estar desactualizado.";
   });
 
-  socket.on("connect_error", () => {
+  socket.on("connect_error", (error) => {
+    console.error("Error de conexión:", error.message);
+    console.log("Descripción:", error.description);
+    console.log("Contexto:", error.context);
+
     status.textContent =
       "No se pudo conectar para recibir actualizaciones en tiempo real.";
   });

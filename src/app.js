@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import servicesRouter from "./routes/services.router.js";
 import bookingsRouter from "./routes/bookings.router.js";
 import viewsRouter from "./routes/views.router.js";
+import pagesRouter from "./routes/pages.router.js";
 
 const app = express();
 
@@ -27,5 +28,5 @@ app.use(express.static(publicPath));
 app.use("/api/services", servicesRouter);
 app.use("/api/bookings", bookingsRouter);
 app.use("/views", viewsRouter);
-
+app.use("/", pagesRouter);
 export default app;

@@ -1,0 +1,37 @@
+<section>
+  <h1>{{title}}</h1>
+
+  <p>Consultá las reservas registradas y sus servicios asociados.</p>
+
+  <p class="summary">
+    Reservas registradas:
+    <strong>{{bookings.length}}</strong>
+  </p>
+
+  <div class="services-grid">
+    {{#each bookings}}
+      <article class="service-card">
+        <h2>{{clientName}}</h2>
+
+        <dl>
+          <dt>Fecha</dt>
+          <dd>{{date}}</dd>
+
+          <dt>Hora</dt>
+          <dd>{{time}}</dd>
+
+          <dt>Estado</dt>
+          <dd>{{status}}</dd>
+        </dl>
+
+        <a href="/views/bookings/{{id}}">
+          Ver detalle
+        </a>
+      </article>
+    {{else}}
+      <p class="empty-state">
+        Todavía no hay reservas registradas.
+      </p>
+    {{/each}}
+  </div>
+</section>

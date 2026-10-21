@@ -15,6 +15,7 @@ export async function createBooking(req, res) {
 export async function getBookingById(req, res) {
   try {
     const { bid } = req.validated.params;
+
     const booking = await bookingsService.getBookingById(bid);
 
     if (booking === null) {
@@ -44,6 +45,62 @@ export async function addServiceToBooking(req, res) {
       error,
       res,
       "No se pudo agregar el servicio a la reserva"
+    );
+  }
+}
+
+export async function removeServiceFromBooking(req, res) {
+  try {
+    const { bid, sid } = req.validated.params;
+
+    const booking = await bookingsService.removeServiceFromBooking(
+      bid,
+      sid
+    );
+
+    return res.status(200).json(booking);
+  } catch (error) {
+    return handleError(
+      error,
+      res,
+      "No se pudo quitar el servicio de la reserva"
+    );
+  }
+}
+
+export async function updateServiceQuantity(req, res) {
+  try {
+    const { bid, sid } = req.validated.params;
+    const { quantity } = req.validated.body;
+
+    const booking = await bookingsService.updateServiceQuantity(
+      bid,
+      sid,
+      quantity
+    );
+
+    return res.status(200).json(booking);
+  } catch (error) {
+    return handleError(
+      error,
+      res,
+      "No se pudo actualizar la cantidad del servicio"
+    );
+  }
+}
+
+export async function deleteBooking(req, res) {
+  try {
+    const { bid } = req.validated.params;
+
+    const booking = await bookingsService.deleteBooking(bid);
+
+    return res.status(200).json(booking);
+  } catch (error) {
+    return handleError(
+      error,
+      res,
+      "No se pudo eliminar la reserva"
     );
   }
 }

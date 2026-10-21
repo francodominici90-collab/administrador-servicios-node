@@ -1,6 +1,6 @@
-# Administrador de servicios y reservas
+# Sistema Backend de Turnos y Reservas
 
-Proyecto desarrollado con Node.js, Express y MongoDB Atlas para gestionar servicios y reservas.
+Proyecto final del curso de backend, desarrollado con Node.js, Express y MongoDB Atlas para gestionar servicios y reservas.
 
 Incluye una API REST, vistas con Handlebars y actualizaciones en tiempo real mediante Socket.IO. La persistencia se realiza con Mongoose y la validación de las peticiones utiliza Zod.
 
@@ -34,8 +34,10 @@ cd administrador-servicios-node
 Instalar las dependencias:
 
 ```bash
-npm install
+npm ci
 ```
+
+`npm ci` instala las versiones registradas en `package-lock.json`. Para incorporar o modificar dependencias durante el desarrollo se utiliza `npm install`.
 
 Crear el archivo `.env` a partir de `.env.example`.
 
@@ -63,7 +65,9 @@ NODE_ENV=development
 MONGO_URI=mongodb+srv://USUARIO:CONTRASENA@HOST_DEL_CLUSTER/turnos_reservas?retryWrites=true&w=majority
 ```
 
-La URI es un ejemplo: debe reemplazarse por la conexión correspondiente al proyecto de Atlas.
+La URI es un ejemplo: debe reemplazarse por la conexión correspondiente al proyecto de Atlas. Debe incluir el nombre de la base de datos que se utilizará.
+
+En Atlas se debe crear un usuario de base de datos y permitir el acceso desde la IP del equipo que ejecuta el servidor. Cada persona que instale el proyecto debe configurar sus propias credenciales.
 
 | Variable | Descripción |
 | --- | --- |
@@ -101,6 +105,14 @@ http://localhost:8080
 
 La API, las vistas y Socket.IO comparten el mismo servidor HTTP.
 
+Para abrir el listado de servicios, visitar:
+
+```text
+http://localhost:8080/services
+```
+
+La instalación no carga datos de ejemplo automáticamente. En una base vacía, los listados estarán vacíos hasta crear servicios y reservas mediante la API.
+
 ## Arquitectura
 
 Las peticiones de la API recorren las siguientes capas:
@@ -129,7 +141,7 @@ Los controllers de vistas utilizan la capa de services. Los manejadores de Socke
 
 - `src/config/`: configuración de entorno y conexión a MongoDB.
 - `src/controllers/`: controllers de servicios, reservas y vistas.
-- `src/routes/`: routers de la API y las vistas.
+- `src/routes/`: routers de la API y las vistas; `pages.router.js` define los accesos `/services` y `/realtime-services`.
 - `src/middlewares/`: middleware de validación.
 - `src/validators/`: esquemas de Zod.
 - `src/services/`: reglas de negocio.
@@ -260,7 +272,7 @@ Si no hay coincidencias, la respuesta es `200`, con `services: []`, `total: 0` y
 
 Si se solicita una página posterior a la última, se devuelve un listado vacío conservando la página solicitada.
 
-Esta entrega cambia la respuesta del listado: el array ahora se encuentra dentro de la propiedad `services`, acompañado por los metadatos.
+El listado de la API devuelve un objeto con la propiedad `services` y los metadatos de paginación.
 
 ## Recurso bookings
 
@@ -297,9 +309,12 @@ Ejemplo de body para `POST /api/bookings`:
 
 | Método | Ruta | Resultado |
 | --- | --- | --- |
-| POST | `/api/bookings` | Creación de una reserva. |
-| GET | `/api/bookings/:bid` | Consulta de una reserva con servicios completos. |
-| POST | `/api/bookings/:bid/services/:sid` | Asociación de un servicio a una reserva. |
+| POST | `/api/bookings` | Crea una reserva; responde `201`. |
+| GET | `/api/bookings/:bid` | Consulta una reserva con servicios completos; responde `200`. |
+| POST | `/api/bookings/:bid/services/:sid` | Agrega un servicio o incrementa su cantidad; responde `200`. |
+| PUT | `/api/bookings/:bid/services/:sid` | Establece la cantidad de un servicio asociado; responde `200`. |
+| DELETE | `/api/bookings/:bid/services/:sid` | Quita el servicio de la reserva; responde `200`. |
+| DELETE | `/api/bookings/:bid` | Elimina la reserva completa; responde `200`. |
 
 Para asociar un servicio:
 
@@ -310,6 +325,50 @@ POST /api/bookings/ID_RESERVA/services/ID_SERVICIO
 Esta petición no necesita body. Ambos identificadores deben corresponder a documentos existentes.
 
 Si el servicio ya está asociado, se incrementa `quantity`. Esta regla se implementa en la capa de services.
+
+### Actualizar la cantidad
+
+Utilizar el método **PUT** con la URL:
+
+```text
+http://localhost:8080/api/bookings/ID_RESERVA/services/ID_SERVICIO
+```
+
+Body en formato JSON:
+
+```json
+{
+  "quantity": 3
+}
+```
+
+La cantidad se reemplaza por el valor indicado; no se suma a la anterior. Debe ser un número entero seguro mayor o igual que 1. Los valores `0`, negativos, decimales o enviados como texto reciben `400`.
+
+La reserva y la asociación deben existir; de lo contrario, se devuelve `404`.
+
+### Quitar un servicio de la reserva
+
+Utilizar el método **DELETE** con la URL:
+
+```text
+http://localhost:8080/api/bookings/ID_RESERVA/services/ID_SERVICIO
+```
+
+No necesita body. Elimina la asociación completa, cualquiera sea su cantidad; no elimina el servicio del catálogo. Si era el único servicio asociado, la reserva queda con `services: []`.
+
+Si la reserva no existe o el servicio no está asociado, se devuelve `404`. También se puede quitar una referencia cuyo servicio ya fue eliminado del catálogo.
+
+### Eliminar una reserva
+
+Utilizar el método **DELETE** con la URL:
+
+```text
+http://localhost:8080/api/bookings/ID_RESERVA
+```
+
+No necesita body. Elimina el documento de la reserva sin eliminar los servicios del catálogo. Una consulta posterior a esa reserva devuelve `404`.
+
+Estas operaciones cubren la actualización de cantidades, la eliminación de servicios asociados y la opción de eliminar una reserva completa indicada en la guía de preparación de la entrega final.
 
 ## Referencias y populate
 
@@ -361,7 +420,7 @@ Ejemplo de respuesta:
 
 Los identificadores de los ejemplos deben reemplazarse por los de la base de datos utilizada.
 
-`populate` se aplica a la consulta de la reserva. Las operaciones de creación y asociación conservan las referencias y no guardan los objetos completos.
+`populate` se aplica a la consulta de la reserva. Las operaciones de escritura conservan las referencias y no guardan los objetos completos.
 
 Si un servicio asociado fue eliminado, su referencia se muestra como `null` en la consulta poblada.
 
@@ -373,6 +432,8 @@ Se validan las siguientes operaciones antes de acceder a MongoDB:
 - Actualizar servicios.
 - Crear reservas.
 - Agregar servicios a reservas.
+- Actualizar la cantidad de un servicio asociado.
+- Validar los parámetros al quitar servicios de una reserva o eliminarla.
 - Consultar servicios con filtros, paginación y ordenamiento.
 - Validar los identificadores utilizados en las rutas de servicios y reservas.
 
@@ -388,10 +449,13 @@ Las validaciones controlan:
 - Identificadores de 24 caracteres hexadecimales.
 - Valores permitidos en filtros y ordenamiento.
 - Parámetros de paginación.
+- Cantidades enteras positivas dentro del rango seguro de JavaScript.
 
 En el body, `available` debe ser `true` o `false`, sin comillas. Los campos numéricos también deben enviarse como números.
 
 En los query params, los valores llegan como texto y el esquema los transforma cuando corresponde.
+
+El middleware utiliza `safeParse` y conserva los datos procesados en `req.validated`. Los controllers de la API utilizan esos datos. Los esquemas de objetos descartan las propiedades desconocidas; no utilizan el modo estricto.
 
 Los datos inválidos reciben `400 Bad Request`, con un mensaje y el detalle de los campos afectados.
 
@@ -404,7 +468,7 @@ Las validaciones de Mongoose y los controles de negocio complementan esta valida
 | `200` | Consulta, actualización, eliminación o asociación exitosa. |
 | `201` | Servicio o reserva creados. |
 | `400` | Datos, parámetros o identificadores inválidos. |
-| `404` | Identificador válido que no corresponde a un recurso existente. |
+| `404` | Recurso inexistente o servicio no asociado a la reserva indicada. |
 | `500` | Error interno al procesar la operación. |
 
 Los errores de entrada se diferencian de los errores internos. Los detalles técnicos de los errores internos se registran en la consola del servidor.
@@ -413,11 +477,21 @@ Los errores de entrada se diferencian de los errores internos. Los detalles téc
 
 | Ruta | Contenido |
 | --- | --- |
-| `/views/services` | Todos los servicios. |
+| `/services` | Listado de servicios con actualizaciones en tiempo real. |
+| `/realtime-services` | Acceso al mismo listado con Socket.IO. |
+| `/views/services` | Acceso original al listado de servicios. |
 | `/views/availability` | Servicios con `available: true`. |
+| `/views/bookings` | Listado de reservas con enlaces a sus detalles. |
+| `/views/bookings/:bid` | Detalle de una reserva y sus servicios mediante `populate`. |
 | `/views/messages` | Historial y formulario de mensajes. |
 
 Las vistas utilizan datos reales de MongoDB, obtenidos mediante la arquitectura en capas.
+
+El menú permite acceder a servicios, disponibilidad, reservas y chat. Desde el listado de reservas se puede abrir el detalle y volver al listado. Si un servicio asociado ya no existe, el detalle muestra “Servicio eliminado del catálogo” y conserva la cantidad para su visualización.
+
+`/services`, `/realtime-services` y `/views/services` reutilizan el mismo controller y la misma plantilla. No se duplica la lógica de consulta.
+
+Los errores internos de las vistas muestran un mensaje general al visitante; los detalles técnicos se registran en el servidor.
 
 La vista de disponibilidad muestra servicios habilitados. No representa horarios libres ni comprueba superposición de turnos.
 
@@ -434,6 +508,12 @@ El navegador escucha el evento y consulta nuevamente la API para actualizar el l
 Las vistas mantienen el listado completo: el código del navegador recorre las páginas de la API cuando es necesario.
 
 Cambiar `available` actualiza tanto el estado mostrado en la vista general como la presencia del servicio en la vista de disponibilidad.
+
+### Registro de conexiones
+
+El servidor registra las conexiones y desconexiones de Socket.IO con su `socket.id` y el motivo de desconexión. El cliente de las vistas de servicios también registra información de conexión y errores en la consola del navegador para facilitar el diagnóstico.
+
+El ID identifica una conexión temporal, no una persona autenticada. Al navegar entre las vistas se carga otra página y se crea una nueva conexión. Para interpretar un aviso de desconexión, se debe comparar su ID con el de la página actual.
 
 ## Mensajes persistentes y Socket.IO
 
@@ -468,6 +548,8 @@ El nombre del autor es un dato del formulario; no representa una identidad auten
 
 Las comprobaciones pueden realizarse con Postman y el navegador, manteniendo el servidor en ejecución.
 
+En Postman, elegir el método en el selector, escribir únicamente la URL en el campo de dirección y utilizar **Body → raw → JSON** cuando la petición necesite datos. Reemplazar `ID_SERVICIO` e `ID_RESERVA` por los identificadores devueltos al crear los documentos. Utilizar datos ficticios y recursos de prueba para las operaciones de eliminación.
+
 ### API y validaciones
 
 1. Crear un servicio válido y comprobar el código `201`.
@@ -497,19 +579,38 @@ Las comprobaciones pueden realizarse con Postman y el navegador, manteniendo el 
 5. Revisar en Atlas que la reserva almacene el ObjectId y la cantidad.
 6. Intentar asociar un recurso inexistente y comprobar `404`.
 7. Enviar identificadores malformados y comprobar `400`.
+8. Establecer `quantity: 3` mediante PUT y consultar nuevamente para verificar que se conserve.
+9. Enviar `quantity: 0` y verificar `400`, sin cambios en la cantidad guardada.
+10. Quitar el servicio mediante DELETE y comprobar que desaparezca del array.
+11. Repetir la eliminación de esa asociación y comprobar `404`.
+12. Eliminar la reserva de prueba y verificar `404` al consultarla nuevamente.
 
 ### Persistencia, vistas y tiempo real
 
 1. Reiniciar el servidor y comprobar que los datos permanezcan.
-2. Abrir las vistas de servicios y disponibilidad.
+2. Abrir `/services`, `/realtime-services`, `/views/services` y `/views/availability`.
 3. Crear, actualizar y eliminar un servicio mediante la API.
 4. Comprobar los cambios sin recargar las vistas.
 5. Cambiar `available` y comprobar la actualización de ambos listados.
 6. Abrir el chat en dos pestañas y enviar un mensaje.
 7. Verificar que aparezca en ambas.
 8. Recargar el chat y comprobar que el historial permanezca.
+9. Abrir `/views/bookings`, acceder al detalle de una reserva y volver al listado.
+10. Comprobar los avisos de conexión y desconexión, comparando los IDs del servidor y del navegador.
 
 Estas pruebas son manuales. El proyecto no incluye una suite de tests automatizados.
+
+## Verificación antes de entregar
+
+- Comprobar la instalación desde una copia limpia del repositorio con `npm ci`.
+- Crear el `.env` local, configurar Atlas y verificar el arranque con `npm start`.
+- Ejecutar las pruebas principales de API, vistas y tiempo real.
+- Revisar los archivos versionados con `git ls-files`: no deben incluir `.env`, `node_modules/`, archivos temporales, credenciales ni datos sensibles.
+- Actualizar el README y confirmar los cambios con Git.
+- Verificar la rama que se entrega y subir los commits al repositorio público.
+- Comprobar `git status` y abrir el enlace de GitHub para revisar los archivos publicados.
+
+Estas comprobaciones forman parte del cierre de la entrega; esta lista no representa una ejecución automática de las pruebas.
 
 ## Alcance actual
 
@@ -517,7 +618,7 @@ Estas pruebas son manuales. El proyecto no incluye una suite de tests automatiza
 - No valida conflictos de horarios entre reservas.
 - La disponibilidad del servicio no representa una agenda de turnos.
 - El chat es compartido y su historial no está paginado.
-- No se implementaron endpoints para actualizar o eliminar reservas.
+- Se permite modificar las asociaciones y sus cantidades, y eliminar reservas. No se implementó una edición general del cliente, fecha, hora o estado de una reserva.
 - Eliminar un servicio no elimina sus referencias en reservas existentes.
 - Los cambios realizados directamente en Atlas no emiten eventos de Socket.IO.
 - La actualización de cantidades no incorpora todavía un mecanismo específico para resolver solicitudes simultáneas.

@@ -2,6 +2,12 @@ import * as messagesService from "../services/messages.service.js";
 
 export function configureMessagesSocket(io) {
   io.on("connection", (socket) => {
+        console.log("Cliente conectado:", socket.id);
+
+    socket.on("disconnect", (reason) => {
+      console.log("Cliente desconectado:", socket.id);
+      console.log("Motivo:", reason);
+    });
     socket.on("messages:list", async (callback) => {
       if (typeof callback !== "function") return;
 

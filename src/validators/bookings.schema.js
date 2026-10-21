@@ -44,7 +44,21 @@ export const bookingParamsSchema = z.object({
   bid: objectIdSchema
 });
 
-export const addServiceToBookingParamsSchema = z.object({
+// Se reutiliza para agregar, quitar y cambiar la cantidad.
+export const bookingServiceParamsSchema = z.object({
   bid: objectIdSchema,
   sid: objectIdSchema
+});
+
+export const updateServiceQuantitySchema = z.object({
+  quantity: z
+    .number({
+      error: "quantity es obligatorio y debe ser un número"
+    })
+    .int({
+      error: "quantity debe ser un número entero dentro del rango seguro"
+    })
+    .min(1, {
+      error: "quantity debe ser mayor o igual que 1"
+    })
 });
